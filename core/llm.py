@@ -10,6 +10,7 @@ falls back to a lighter Gemini model and then to Ollama automatically.
 """
 
 import logging
+import re
 import time
 
 from core import config
@@ -76,6 +77,21 @@ def _ollama_generate(
 
 _PROVIDERS = {"gemini": _gemini_generate, "ollama": _ollama_generate}
 
+# model -> time.time() until which it is skipped because its quota ran out.
+# The Gemini free tier allows only ~20 requests/day for some models; without this,
+# every call would first waste attempts on the exhausted model.
+_cooldown_until: dict[str, float] = {}
+DEFAULT_COOLDOWN_S = 60
+
+
+def _quota_cooldown(exc: Exception) -> float | None:
+    """Seconds to skip a model for, if exc is a quota/rate-limit error (HTTP 429)."""
+    text = str(exc)
+    if getattr(exc, "code", None) != 429 and "RESOURCE_EXHAUSTED" not in text:
+        return None
+    match = re.search(r"retryDelay'?:\s*'(\d+)s'", text)
+    return float(match.group(1)) if match else DEFAULT_COOLDOWN_S
+
 
 def _candidates(primary: str, fallback: bool) -> list[tuple[str, str]]:
     """(provider, model) pairs to try in order.
@@ -93,14 +109,15 @@ def _candidates(primary: str, fallback: bool) -> list[tuple[str, str]]:
 
 
 def _with_retries(fn, *args, attempts: int = 2):
-    """Retry with exponential backoff (1s, 2s, ...) for transient errors like rate limits."""
+    """Retry with exponential backoff (1s, 2s, ...) for transient errors like overload.
+    Quota errors aren't retried: they won't clear in seconds."""
     for i in range(attempts):
         try:
             return fn(*args)
         except LLMError:
             raise
         except Exception as exc:
-            if i == attempts - 1:
+            if i == attempts - 1 or _quota_cooldown(exc) is not None:
                 raise
             wait = 2**i
             log.warning("LLM call failed (%s); retrying in %ss", exc, wait)
@@ -126,11 +143,20 @@ def generate(
 
     errors = []
     for name, model in _candidates(primary, fallback):
+        wait = _cooldown_until.get(model, 0) - time.time()
+        if wait > 0:
+            errors.append(f"{name}/{model}: quota exhausted, retry in {wait / 60:.0f} min")
+            continue
         try:
             return _with_retries(_PROVIDERS[name], model, prompt, system, json_mode, temperature)
         except Exception as exc:
-            log.warning("%s / %s failed: %s", name, model, exc)
-            errors.append(f"{name}/{model}: {exc}")
+            cooldown = _quota_cooldown(exc)
+            if cooldown is not None:
+                _cooldown_until[model] = time.time() + cooldown
+                log.warning("%s / %s quota exhausted; skipping it for %.0fs", name, model, cooldown)
+            else:
+                log.warning("%s / %s failed: %s", name, model, str(exc)[:300])
+            errors.append(f"{name}/{model}: {str(exc)[:300]}")
     raise LLMError("All LLM providers failed. " + " | ".join(errors))
 
 

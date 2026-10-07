@@ -54,7 +54,8 @@ A web app that grounds every answer in the student's own material (Retrieval-Aug
 | Language | Python 3.12 |
 | Web UI | Streamlit |
 | LLM | Google Gemini API (online) / Ollama (offline fallback) |
-| Embeddings | sentence-transformers (runs locally) |
+| Embeddings | sentence-transformers `all-MiniLM-L6-v2` (runs locally) |
+| Reranking | cross-encoder `ms-marco-MiniLM-L-6-v2` (runs locally) |
 | Vector database | ChromaDB |
 | App database | SQLite (users, quiz results, topic scores, plans) |
 | Document parsing | pypdf, python-docx |
@@ -69,7 +70,10 @@ Upload PDF/DOCX/TXT
         ▼
  Text extraction → Chunking → Embeddings → ChromaDB
                                               │
- Student question ──► Retrieve top chunks ◄───┘
+ Student question ──► Retrieve 20 chunks ◄────┘
+                            │
+                            ▼
+                   Rerank (cross-encoder) → top 5
                             │
                             ▼
                    LLM (Gemini / Ollama) ──► Answer + citations

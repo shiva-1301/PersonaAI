@@ -3,6 +3,7 @@
 import streamlit as st
 
 from core import config, db, llm
+from core.ui import sidebar
 
 st.set_page_config(page_title="PersonaAI", page_icon="🎓", layout="wide")
 db.init_db()
@@ -24,22 +25,13 @@ def login_form() -> None:
         st.rerun()
 
 
-def sidebar() -> None:
-    with st.sidebar:
-        st.write(f"Signed in as **{st.session_state.username}**")
-        st.caption(f"Model: {llm.active_model()}")
-        if st.button("Log out"):
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
-            st.rerun()
-
-
 def home() -> None:
     st.title(f"Welcome, {st.session_state.username} 👋")
     st.write(
         "Upload your course material, ask questions about it, take quizzes, "
         "and get a study plan that focuses on your weak topics."
     )
+    st.page_link("pages/1_Notes_QA.py", label="Start with Notes Q&A", icon="📚")
 
     st.subheader("LLM connection test")
     provider = st.radio(

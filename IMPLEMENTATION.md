@@ -69,13 +69,14 @@ PersonaAI/
 
 ## Phase 1: Notes Q&A with Citations (Days 2–3)
 
-- [ ] Upload PDF/DOCX/TXT (multiple files)
-- [ ] Extract text page by page; chunk into ~500-token pieces with overlap
-- [ ] Embed chunks locally (sentence-transformers `all-MiniLM-L6-v2`) and store them in ChromaDB, tagged with user, file, and page
-- [ ] Extract a topic list from each document (LLM) and save it to `topics`
-- [ ] Chat interface: retrieve the top 5 chunks, then the LLM answers **only from those chunks**
-- [ ] Show citations (file name + page) under each answer
-- [ ] Reply "not found in your notes" when retrieval finds nothing relevant
+- [x] Upload PDF/DOCX/TXT (multiple files)
+- [x] Extract text page by page; chunk into ~180-word pieces with 40-word overlap *(changed from ~500 tokens: all-MiniLM-L6-v2 only reads 256 tokens, so longer chunks were silently truncated)*
+- [x] Strip repeated page headers/footers; re-extract "one word per line" PDFs in layout mode
+- [x] Embed chunks locally (sentence-transformers `all-MiniLM-L6-v2`) and store them in ChromaDB, tagged with user, file, and page
+- [x] Extract a topic list from each document (LLM) and save it to `topics`; user can edit it
+- [x] Chat interface: retrieve 20 candidates, rerank with a cross-encoder (`ms-marco-MiniLM-L-6-v2`), the LLM answers **only from the top 5** *(reranker added: without it, "What is Apache Pig?" ranked the defining chunk 8th and got "not found")*
+- [x] Show citations (file name + page) under each answer
+- [x] Reply "not found in your notes" when retrieval finds nothing relevant (reranker score cutoff + LLM `NOT_FOUND`)
 
 **Done when:** you upload your notes, ask 5 questions, and get correct answers with correct page citations, and an off-syllabus question gets "not found".
 

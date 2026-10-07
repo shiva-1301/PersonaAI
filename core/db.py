@@ -94,3 +94,74 @@ def get_or_create_user(username: str, db_path=None) -> sqlite3.Row:
         return conn.execute(
             "SELECT id, username, created_at FROM users WHERE username = ?", (username,)
         ).fetchone()
+
+
+# --- Documents ---
+
+def add_document(user_id: int, filename: str, subject: str | None, page_count: int, db_path=None) -> int:
+    with connect(db_path) as conn:
+        cur = conn.execute(
+            "INSERT INTO documents (user_id, filename, subject, page_count) VALUES (?, ?, ?, ?)",
+            (user_id, filename, subject, page_count),
+        )
+        return cur.lastrowid
+
+
+def list_documents(user_id: int, db_path=None) -> list[sqlite3.Row]:
+    with connect(db_path) as conn:
+        return conn.execute(
+            "SELECT * FROM documents WHERE user_id = ? ORDER BY uploaded_at DESC, id DESC",
+            (user_id,),
+        ).fetchall()
+
+
+def find_document(user_id: int, filename: str, db_path=None) -> sqlite3.Row | None:
+    with connect(db_path) as conn:
+        return conn.execute(
+            "SELECT * FROM documents WHERE user_id = ? AND filename = ?", (user_id, filename)
+        ).fetchone()
+
+
+def delete_document(document_id: int, db_path=None) -> None:
+    """Deletes the document and (via ON DELETE CASCADE) its topics."""
+    with connect(db_path) as conn:
+        conn.execute("DELETE FROM documents WHERE id = ?", (document_id,))
+
+
+# --- Topics ---
+
+def set_topics(user_id: int, document_id: int, names: list[str], db_path=None) -> None:
+    """Replace a document's topic list. Topics whose names are kept keep their ids
+    (and so their quiz history); removed ones are deleted."""
+    wanted = []
+    for name in names:
+        name = " ".join(name.split())
+        if name and name.lower() not in {w.lower() for w in wanted}:
+            wanted.append(name)
+    with connect(db_path) as conn:
+        existing = {
+            r["name"].lower(): r["id"]
+            for r in conn.execute("SELECT id, name FROM topics WHERE document_id = ?", (document_id,))
+        }
+        keep = {n.lower() for n in wanted}
+        for lname, topic_id in existing.items():
+            if lname not in keep:
+                conn.execute("DELETE FROM topics WHERE id = ?", (topic_id,))
+        for name in wanted:
+            if name.lower() not in existing:
+                conn.execute(
+                    "INSERT INTO topics (user_id, document_id, name) VALUES (?, ?, ?)",
+                    (user_id, document_id, name),
+                )
+
+
+def list_topics(user_id: int, document_id: int | None = None, db_path=None) -> list[sqlite3.Row]:
+    with connect(db_path) as conn:
+        if document_id is None:
+            return conn.execute(
+                "SELECT * FROM topics WHERE user_id = ? ORDER BY document_id, id", (user_id,)
+            ).fetchall()
+        return conn.execute(
+            "SELECT * FROM topics WHERE user_id = ? AND document_id = ? ORDER BY id",
+            (user_id, document_id),
+        ).fetchall()

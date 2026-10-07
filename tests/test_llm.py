@@ -50,3 +50,30 @@ def test_all_failing_raises_llm_error(models, monkeypatch):
 def test_unknown_provider_rejected(models):
     with pytest.raises(llm.LLMError, match="Unknown LLM provider"):
         llm.generate("hi", provider="gpt")
+
+
+class QuotaError(Exception):
+    code = 429
+
+
+def test_quota_error_skips_model_for_retry_delay(models, monkeypatch):
+    monkeypatch.setattr(llm, "_cooldown_until", {})
+    calls = []
+
+    def gemini(model, *a):
+        calls.append(model)
+        if model == "g-main":
+            raise QuotaError("429 RESOURCE_EXHAUSTED {'retryDelay': '27190s'}")
+        return "lite reply"
+
+    monkeypatch.setattr(llm, "_PROVIDERS", {"gemini": gemini, "ollama": gemini})
+    assert llm.generate("a") == "lite reply"
+    assert llm.generate("b") == "lite reply"
+    # Not retried, and skipped entirely on the second call.
+    assert calls == ["g-main", "g-lite", "g-lite"]
+    assert llm._cooldown_until["g-main"] - llm.time.time() > 27000
+
+
+def test_overload_is_not_treated_as_quota():
+    assert llm._quota_cooldown(RuntimeError("503 UNAVAILABLE high demand")) is None
+    assert llm._quota_cooldown(QuotaError("429")) == llm.DEFAULT_COOLDOWN_S

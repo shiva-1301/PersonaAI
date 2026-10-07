@@ -13,6 +13,11 @@ DB_PATH = DATA_DIR / "personaai.db"
 
 load_dotenv(ROOT_DIR / ".env")
 
+# Hugging Face's "xet" downloader ships a DLL that Windows Smart App Control blocks;
+# plain HTTP downloads work everywhere. Set before sentence-transformers is imported.
+os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
+os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
+
 
 def _get(key: str, default: str = "") -> str:
     """Read a setting from the environment first, then Streamlit secrets."""
