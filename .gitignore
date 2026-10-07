@@ -1,0 +1,11 @@
+# Secrets
+.env
+.streamlit/secrets.toml
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# App data (uploads, vector DB, SQLite)
+data/

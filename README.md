@@ -1,0 +1,144 @@
+# PersonaAI
+
+**An adaptive AI study assistant that learns what you don't know yet.**
+
+PersonaAI lets a student upload their course material, ask questions about it, take auto-generated quizzes, and get a study plan for their exam. Unlike a general chatbot, it remembers which topics each student struggles with and adapts its quizzes and study plan to target those weak areas.
+
+Aligned with **SDG 4 – Quality Education**.
+
+---
+
+## Problem
+
+Students revise from scattered notes and PDFs, and general AI chatbots:
+- answer from general knowledge, not from *their* syllabus and notes,
+- don't remember what a student got wrong last time,
+- give the same generic study advice to everyone.
+
+## Solution
+
+A web app that grounds every answer in the student's own material (Retrieval-Augmented Generation) and keeps a long-term memory of each student's weak topics.
+
+---
+
+## Features
+
+### 1. Notes Q&A with citations
+- Upload course material (PDF, DOCX, TXT).
+- Ask questions in plain language.
+- Answers are generated **only from the uploaded material** and cite the source document and page.
+- If the answer isn't in the material, the assistant says so instead of guessing.
+
+### 2. Quiz generation
+- Generate multiple-choice quizzes from any uploaded document or topic.
+- Instant grading with explanations for each answer.
+- Every answer is recorded per topic.
+
+### 3. Weak-topic memory
+- Tracks the student's accuracy on each topic across all quizzes.
+- Flags weak topics (low accuracy) and strong topics.
+- Later quizzes focus more on weak topics.
+- Dashboard shows topic-wise progress over time.
+
+### 4. Personalized study plan
+- Student enters the exam date and available hours per day.
+- Generates a day-by-day revision plan covering the syllabus, with extra time on weak topics.
+- Plan updates as quiz performance changes.
+
+---
+
+## Tech Stack
+
+| Component | Choice |
+|---|---|
+| Language | Python 3.12 |
+| Web UI | Streamlit |
+| LLM | Google Gemini API (online) / Ollama (offline fallback) |
+| Embeddings | sentence-transformers (runs locally) |
+| Vector database | ChromaDB |
+| App database | SQLite (users, quiz results, topic scores, plans) |
+| Document parsing | pypdf, python-docx |
+| Deployment | Streamlit Community Cloud |
+| Version control | Git & GitHub |
+
+## System Architecture
+
+```
+Upload PDF/DOCX/TXT
+        │
+        ▼
+ Text extraction → Chunking → Embeddings → ChromaDB
+                                              │
+ Student question ──► Retrieve top chunks ◄───┘
+                            │
+                            ▼
+                   LLM (Gemini / Ollama) ──► Answer + citations
+                            │
+ Quiz answers ──► SQLite (topic scores) ──► Weak-topic memory
+                                                  │
+                                                  ▼
+                                   Quiz targeting + Study plan
+```
+
+---
+
+## Deliverables
+
+1. **Working web application**: all four features, deployed online with a public link.
+2. **Source code repository** on GitHub with a clear structure and setup instructions.
+3. **Evaluation report** covering:
+   - answer accuracy with RAG vs. without RAG, on a set of real exam questions;
+   - quiz improvement when quizzes target weak topics vs. random topics.
+4. **Technical documentation**: architecture, database schema, and module descriptions.
+5. **User guide** with screenshots.
+6. **Demo video** (3–5 minutes).
+
+---
+
+## Scope
+
+**In scope:** single-subject or multi-subject study material, per-user memory, the four features above, and an offline mode via Ollama.
+
+**Out of scope:** lecture recording and transcription, calendar and email integration, mobile app, payment, and multi-institution deployment.
+
+---
+
+## Hardware & Software Requirements
+
+| | Minimum |
+|---|---|
+| Processor | Intel i5 or equivalent |
+| RAM | 8 GB (16 GB for offline mode) |
+| Software | Python 3.12+, Git, a modern browser |
+| Internet | Needed for Gemini API and deployment; not needed in offline mode |
+
+---
+
+## Run Locally
+
+```bash
+py -3.12 -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+# put GEMINI_API_KEY (and optional settings) in .env
+streamlit run app.py
+```
+
+Run the tests with `pytest`.
+
+---
+
+## Project Status
+
+🚧 In development.
+
+| Milestone | Status |
+|---|---|
+| Project setup | ✅ |
+| Feature 1: Notes Q&A | ⬜ |
+| Feature 2: Quiz generation | ⬜ |
+| Feature 3: Weak-topic memory | ⬜ |
+| Feature 4: Study plan | ⬜ |
+| Evaluation | ⬜ |
+| Deployment | ⬜ |
+| Documentation & demo | ⬜ |

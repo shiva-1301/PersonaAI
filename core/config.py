@@ -1,0 +1,42 @@
+"""Loads settings from .env (locally) or Streamlit secrets (on Streamlit Cloud)."""
+
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = ROOT_DIR / "data"
+UPLOADS_DIR = DATA_DIR / "uploads"
+CHROMA_DIR = DATA_DIR / "chroma"
+DB_PATH = DATA_DIR / "personaai.db"
+
+load_dotenv(ROOT_DIR / ".env")
+
+
+def _get(key: str, default: str = "") -> str:
+    """Read a setting from the environment first, then Streamlit secrets."""
+    value = os.getenv(key)
+    if value:
+        return value.strip()
+    try:
+        import streamlit as st
+
+        if key in st.secrets:
+            return str(st.secrets[key]).strip()
+    except Exception:
+        # No secrets.toml, or not running under Streamlit.
+        pass
+    return default
+
+
+LLM_PROVIDER = _get("LLM_PROVIDER", "gemini").lower()
+GEMINI_API_KEY = _get("GEMINI_API_KEY")
+GEMINI_MODEL = _get("GEMINI_MODEL", "gemini-3.8-flash")
+# Lighter model tried when the main one is overloaded (503) before falling back to Ollama.
+GEMINI_FALLBACK_MODEL = _get("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash-lite")
+OLLAMA_MODEL = _get("OLLAMA_MODEL", "llama3.1:8b")
+OLLAMA_HOST = _get("OLLAMA_HOST", "http://localhost:11434")
+
+for _dir in (DATA_DIR, UPLOADS_DIR, CHROMA_DIR):
+    _dir.mkdir(parents=True, exist_ok=True)
