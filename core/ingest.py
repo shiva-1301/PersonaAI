@@ -38,28 +38,35 @@ class IngestResult:
 
 
 def ingest(user_id: int, filename: str, data: bytes, subject: str | None = None) -> IngestResult:
-    """Add a document for a user. Re-uploading a file with the same name replaces it.
+    """Add a document for a user. Re-uploading a file with the same name replaces its
+    text but keeps its topics, so their quiz history survives.
     Raises documents.DocumentError for unreadable files."""
     filename = Path(filename).name
     pages = extract_pages(filename, data)
     chunks = chunk_pages(pages)
-
-    existing = db.find_document(user_id, filename)
-    if existing:
-        remove(user_id, existing["id"])
+    page_count = len(pages) if pages[0].number else 0
 
     path = _upload_path(user_id, filename)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(data)
 
-    page_count = len(pages) if pages[0].number else 0
-    document_id = db.add_document(user_id, filename, subject, page_count)
-    try:
+    existing = db.find_document(user_id, filename)
+    if existing:
+        document_id = existing["id"]
+        vectorstore.delete_document(document_id)
+        db.update_document(document_id, subject, page_count)
         vectorstore.add_chunks(user_id, document_id, filename, chunks)
-    except Exception:
-        db.delete_document(document_id)
-        path.unlink(missing_ok=True)
-        raise
+        topics = [t["name"] for t in db.list_topics(user_id, document_id)]
+        if topics:
+            return IngestResult(document_id, filename, len(pages), len(chunks), topics)
+    else:
+        document_id = db.add_document(user_id, filename, subject, page_count)
+        try:
+            vectorstore.add_chunks(user_id, document_id, filename, chunks)
+        except Exception:
+            db.delete_document(document_id)
+            path.unlink(missing_ok=True)
+            raise
 
     result = IngestResult(document_id, filename, len(pages), len(chunks))
     try:

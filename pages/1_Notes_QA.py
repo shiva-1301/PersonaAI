@@ -2,7 +2,7 @@
 
 import streamlit as st
 
-from core import db, ingest, llm, rag
+from core import db, ingest, llm, memory, rag
 from core.documents import SUPPORTED_TYPES, DocumentError
 from core.ui import load_models, require_login
 
@@ -91,6 +91,15 @@ with docs_tab:
 
 # --- Ask tab ---
 
+def show_weak_topic(topic: dict | None) -> None:
+    if topic:
+        st.warning(
+            f"📌 This is about **{topic['name']}**, one of your weak topics "
+            f"({topic['accuracy']:.0%} in recent quizzes). An adaptive quiz on the "
+            "**Quiz** page will focus on it."
+        )
+
+
 def show_answer(answer: rag.Answer) -> None:
     if not answer.found:
         st.info(answer.text)
@@ -126,6 +135,7 @@ with ask_tab:
                 st.markdown(turn["question"])
             with st.chat_message("assistant"):
                 show_answer(turn["answer"])
+                show_weak_topic(turn.get("weak_topic"))
 
         question = st.chat_input("Ask a question about your notes")
         if question:
@@ -142,7 +152,12 @@ with ask_tab:
                         )
                         st.stop()
                 show_answer(answer)
-            st.session_state.qa_history.append({"question": question, "answer": answer})
+                weak = memory.related_weak_topic(user_id, question) if answer.found else None
+                weak_topic = {"name": weak.name, "accuracy": weak.accuracy} if weak else None
+                show_weak_topic(weak_topic)
+            st.session_state.qa_history.append(
+                {"question": question, "answer": answer, "weak_topic": weak_topic}
+            )
 
         if st.session_state.qa_history and st.button("Clear chat"):
             st.session_state.qa_history = []

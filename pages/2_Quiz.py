@@ -2,7 +2,7 @@
 
 import streamlit as st
 
-from core import db, quiz
+from core import db, memory, quiz
 from core.ui import load_models, require_login
 
 st.set_page_config(page_title="Quiz · PersonaAI", page_icon="📝", layout="wide")
@@ -39,10 +39,36 @@ def setup() -> None:
         placeholder="All topics in the selected documents",
     )
     n = st.radio("Number of questions", quiz.QUIZ_SIZES, index=1, horizontal=True)
+    mode = st.radio(
+        "Mode",
+        ["Adaptive", "Even mix"],
+        horizontal=True,
+        captions=[
+            f"~{round(memory.ADAPTIVE_WEAK_SHARE * 100)}% of questions on your weak topics",
+            "Questions spread evenly over the topics",
+        ],
+    )
+
+    chosen_topics = topic_ids or list(topic_names)
+    stats = memory.topic_stats(user_id, chosen_topics)
+    weak = sorted((s for s in stats if s.status == "weak"), key=lambda s: s.accuracy)
+    if mode == "Adaptive":
+        if weak:
+            st.info(
+                "Focusing on your weak topics: "
+                + ", ".join(f"**{s.name}** ({s.accuracy:.0%})" for s in weak)
+            )
+        else:
+            st.info(
+                f"No weak topics yet (a topic needs {memory.MIN_ANSWERS}+ answers to be judged). "
+                "This quiz will favour topics you haven't been tested on."
+            )
 
     if st.button("Generate quiz", type="primary"):
-        chosen_topics = topic_ids or list(topic_names)
-        allocation = quiz.even_allocation(chosen_topics, n)
+        if mode == "Adaptive":
+            allocation = memory.adaptive_allocation(stats, n)
+        else:
+            allocation = quiz.even_allocation(chosen_topics, n)
         with st.spinner(f"Writing {n} questions from your notes..."):
             try:
                 questions = quiz.generate(user_id, allocation)

@@ -99,11 +99,13 @@ PersonaAI/
 
 ## Phase 3: Weak-Topic Memory + Dashboard (Days 6–7)
 
-- [ ] Update `topic_scores` after every quiz
-- [ ] Weak topic = accuracy < 60% with at least 3 attempts; strong = ≥ 80%
-- [ ] "Adaptive quiz" mode: ~60% of questions come from weak topics
-- [ ] Progress page: per-topic accuracy bar chart, weak/strong lists, quiz history over time
-- [ ] Q&A assistant mentions related weak topics when relevant
+- [x] Update `topic_scores` after every quiz (rebuilt from `quiz_answers` in the same transaction, so it can't drift; existing quizzes are backfilled)
+- [x] Accuracy is over the **last 10 answers** per topic *(added: with all-time accuracy, early mistakes keep a topic weak long after you've improved)*
+- [x] Weak topic = accuracy < 60% with at least 3 answers; strong = ≥ 80%
+- [x] "Adaptive quiz" mode: ~60% of questions from weak topics (weakest first); the rest go to untested topics first, then low scorers, then strong topics seen longest ago
+- [x] Progress page: per-topic accuracy bar chart, weak/strong lists, quiz history over time, table of all topics
+- [x] Q&A assistant mentions the question's topic when it is weak (closest topic by embedding similarity; a fixed similarity cutoff failed calibration)
+- [x] Re-uploading a file keeps its topics and their quiz history *(fix: re-upload used to delete topics)*
 
 **Done when:** after 3–4 quizzes, the dashboard shows your weak topics correctly and an adaptive quiz focuses on them.
 

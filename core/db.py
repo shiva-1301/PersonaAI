@@ -83,6 +83,13 @@ def connect(db_path=None):
 def init_db(db_path=None) -> None:
     with connect(db_path) as conn:
         conn.executescript(SCHEMA)
+        # Backfill scores for quizzes taken before score tracking existed.
+        stale = conn.execute(
+            "SELECT DISTINCT q.user_id FROM quiz_attempts q WHERE NOT EXISTS"
+            " (SELECT 1 FROM topic_scores s WHERE s.user_id = q.user_id)"
+        ).fetchall()
+        for row in stale:
+            _refresh_topic_scores(conn, row["user_id"])
 
 
 def get_or_create_user(username: str, db_path=None) -> sqlite3.Row:
@@ -184,6 +191,7 @@ def save_quiz_attempt(
             " VALUES (?, ?, ?, ?, ?, ?)",
             [(attempt_id, t, q, ch, co, int(ok)) for t, q, ch, co, ok in answers],
         )
+        _refresh_topic_scores(conn, user_id)
         return attempt_id
 
 
@@ -202,3 +210,54 @@ def list_quiz_answers(attempt_id: int, db_path=None) -> list[sqlite3.Row]:
             " LEFT JOIN topics t ON t.id = a.topic_id WHERE a.attempt_id = ? ORDER BY a.id",
             (attempt_id,),
         ).fetchall()
+
+
+# --- Topic scores ---
+
+# A topic's accuracy is over this many most recent answers, so improvement shows.
+RECENT_ANSWERS = 10
+
+_REFRESH_SCORES = """
+INSERT INTO topic_scores (user_id, topic_id, attempts, correct, accuracy, last_seen)
+SELECT q.user_id, a.topic_id, COUNT(*), SUM(a.is_correct),
+       (SELECT AVG(r.is_correct) FROM (
+            SELECT a2.is_correct FROM quiz_answers a2
+            JOIN quiz_attempts q2 ON q2.id = a2.attempt_id
+            WHERE a2.topic_id = a.topic_id AND q2.user_id = q.user_id
+            ORDER BY a2.id DESC LIMIT {recent}) r),
+       MAX(q.created_at)
+FROM quiz_answers a JOIN quiz_attempts q ON q.id = a.attempt_id
+WHERE q.user_id = ? AND a.topic_id IS NOT NULL
+GROUP BY a.topic_id
+""".format(recent=RECENT_ANSWERS)
+
+
+def _refresh_topic_scores(conn: sqlite3.Connection, user_id: int) -> None:
+    """Rebuild a user's topic_scores from their saved answers."""
+    conn.execute("DELETE FROM topic_scores WHERE user_id = ?", (user_id,))
+    conn.execute(_REFRESH_SCORES, (user_id,))
+
+
+def topic_scores(user_id: int, db_path=None) -> list[sqlite3.Row]:
+    """Every topic of the user with its document and score (NULLs if never tested)."""
+    with connect(db_path) as conn:
+        return conn.execute(
+            "SELECT t.id, t.name, t.document_id, d.filename,"
+            "       s.attempts, s.correct, s.accuracy, s.last_seen"
+            " FROM topics t"
+            " LEFT JOIN documents d ON d.id = t.document_id"
+            " LEFT JOIN topic_scores s ON s.topic_id = t.id AND s.user_id = t.user_id"
+            " WHERE t.user_id = ? ORDER BY t.document_id, t.id",
+            (user_id,),
+        ).fetchall()
+
+
+def update_document(document_id: int, subject: str | None, page_count: int, db_path=None) -> None:
+    """Refresh a re-uploaded document in place, keeping its id (and so its topics and
+    their quiz history)."""
+    with connect(db_path) as conn:
+        conn.execute(
+            "UPDATE documents SET subject = COALESCE(?, subject), page_count = ?,"
+            " uploaded_at = datetime('now') WHERE id = ?",
+            (subject, page_count, document_id),
+        )
