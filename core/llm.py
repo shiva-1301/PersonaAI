@@ -137,6 +137,18 @@ def generate(
     With fallback=True, if the chosen model fails the next candidate is tried
     (main Gemini model -> lighter Gemini model -> Ollama, or Ollama first in offline mode).
     """
+    return generate_with_model(prompt, system, json_mode, temperature, provider, fallback)[0]
+
+
+def generate_with_model(
+    prompt: str,
+    system: str | None = None,
+    json_mode: bool = False,
+    temperature: float = 0.2,
+    provider: str | None = None,
+    fallback: bool = True,
+) -> tuple[str, str]:
+    """Like generate(), but also returns which model replied, e.g. "gemini / gemini-3.5-flash-lite"."""
     primary = (provider or config.LLM_PROVIDER).lower()
     if primary not in _PROVIDERS:
         raise LLMError(f"Unknown LLM provider: {primary!r}. Use 'gemini' or 'ollama'.")
@@ -147,8 +159,11 @@ def generate(
         if wait > 0:
             errors.append(f"{name}/{model}: quota exhausted, retry in {wait / 60:.0f} min")
             continue
+        started = time.time()
         try:
-            return _with_retries(_PROVIDERS[name], model, prompt, system, json_mode, temperature)
+            text = _with_retries(_PROVIDERS[name], model, prompt, system, json_mode, temperature)
+            log.info("Answered by %s / %s in %.1fs", name, model, time.time() - started)
+            return text, f"{name} / {model}"
         except Exception as exc:
             cooldown = _quota_cooldown(exc)
             if cooldown is not None:

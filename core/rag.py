@@ -52,6 +52,7 @@ class Answer:
     text: str
     found: bool
     sources: list[Source] = field(default_factory=list)
+    model: str | None = None  # which LLM wrote the answer; None if no LLM was called
 
 
 def build_prompt(question: str, hits: list[vectorstore.Hit]) -> str:
@@ -119,5 +120,7 @@ def answer(user_id: int, question: str, document_ids: list[int] | None = None) -
     hits = retrieve(user_id, question, document_ids)
     if not hits:
         return Answer(NOT_FOUND_MESSAGE, found=False)
-    reply = llm.generate(build_prompt(question, hits), system=SYSTEM_PROMPT)
-    return parse_answer(reply, hits)
+    reply, model = llm.generate_with_model(build_prompt(question, hits), system=SYSTEM_PROMPT)
+    result = parse_answer(reply, hits)
+    result.model = model
+    return result

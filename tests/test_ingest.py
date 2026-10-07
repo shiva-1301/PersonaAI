@@ -22,6 +22,7 @@ def env(tmp_path, monkeypatch):
 
 def fake_llm(monkeypatch, reply):
     monkeypatch.setattr(llm, "generate", lambda *a, **k: reply)
+    monkeypatch.setattr(llm, "generate_with_model", lambda *a, **k: (reply, "fake / model"))
 
 
 def test_ingest_search_answer_and_remove(env, monkeypatch):
@@ -36,6 +37,7 @@ def test_ingest_search_answer_and_remove(env, monkeypatch):
     fake_llm(monkeypatch, "Dropping an external table keeps the data [S1].")
     answer = rag.answer(env, "what happens when you drop an external table?")
     assert answer.found and answer.sources[0].filename == "hive.txt"
+    assert answer.model == "fake / model"
 
     ingest.remove(env, result.document_id)
     assert db.list_documents(env) == []
@@ -50,6 +52,7 @@ def test_unrelated_question_skips_llm(env, monkeypatch):
         raise AssertionError("LLM should not be called")
 
     monkeypatch.setattr(llm, "generate", boom)
+    monkeypatch.setattr(llm, "generate_with_model", boom)
     assert not rag.answer(env, "How do I bake a chocolate cake?").found
 
 

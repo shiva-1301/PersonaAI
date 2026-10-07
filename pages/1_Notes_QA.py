@@ -101,10 +101,15 @@ with docs_tab:
 def show_answer(answer: rag.Answer) -> None:
     if not answer.found:
         st.info(answer.text)
+        if answer.model:
+            st.caption(f"Checked by {answer.model}")
         return
     st.markdown(answer.text)
     if answer.sources:
         st.caption("Sources: " + " · ".join(f"[S{s.number}] {s.label}" for s in answer.sources))
+    if answer.model:
+        st.caption(f"Answered by {answer.model}")
+    if answer.sources:
         with st.expander("Show source excerpts"):
             for s in answer.sources:
                 st.markdown(f"**[S{s.number}] {s.label}**")

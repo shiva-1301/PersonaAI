@@ -1,5 +1,6 @@
 """Loads settings from .env (locally) or Streamlit secrets (on Streamlit Cloud)."""
 
+import logging
 import os
 from pathlib import Path
 
@@ -43,5 +44,17 @@ GEMINI_FALLBACK_MODEL = _get("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash-lite")
 OLLAMA_MODEL = _get("OLLAMA_MODEL", "llama3.1:8b")
 OLLAMA_HOST = _get("OLLAMA_HOST", "http://localhost:11434")
 
+LOG_PATH = DATA_DIR / "personaai.log"
+
 for _dir in (DATA_DIR, UPLOADS_DIR, CHROMA_DIR):
     _dir.mkdir(parents=True, exist_ok=True)
+
+# App log (which model answered, fallbacks, quota errors). Guarded so Streamlit's
+# module reloads don't attach a second handler.
+_app_log = logging.getLogger("core")
+if not any(getattr(h, "_personaai", False) for h in _app_log.handlers):
+    _handler = logging.FileHandler(LOG_PATH, encoding="utf-8")
+    _handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    _handler._personaai = True
+    _app_log.addHandler(_handler)
+    _app_log.setLevel(logging.INFO)
