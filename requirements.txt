@@ -7,4 +7,3 @@ google-genai
 ollama
 python-dotenv
 pandas
-pytest

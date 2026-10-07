@@ -1,0 +1,3 @@
+-r requirements.txt
+pytest
+vl-convert-python  # renders the evaluation chart to PNG

@@ -12,6 +12,7 @@ from core import llm, vectorstore
 RERANK_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 CANDIDATES = 20
 TOP_K = 5
+RETRIEVAL = "embedding -> cross-encoder"  # recorded with evaluation results
 # Reranker score below which a chunk is treated as unrelated. Calibrated on the Big Data
 # notes: on-syllabus questions scored -2.3 to 8.6 for their best chunk, unrelated ones
 # (linked lists, HDFS replication) -9.4 to -4.7. Near-domain off-syllabus questions can

@@ -84,7 +84,12 @@ _PROVIDERS = {"gemini": _gemini_generate, "ollama": _ollama_generate}
 # The Gemini free tier allows only ~20 requests/day for some models; without this,
 # every call would first waste attempts on the exhausted model.
 _cooldown_until: dict[str, float] = {}
-DEFAULT_COOLDOWN_S = 60
+# A 429 without a retry delay is treated as a long (daily) limit.
+DEFAULT_COOLDOWN_S = 300
+# Per-minute rate limits (Flash-Lite free tier: 15 requests/minute) ask for a few
+# seconds' wait; anything up to this is waited out rather than skipping the model.
+MAX_RATE_LIMIT_WAIT_S = 60
+MAX_RATE_LIMIT_WAITS = 3
 
 
 def _quota_cooldown(exc: Exception) -> float | None:
@@ -113,16 +118,30 @@ def _candidates(primary: str, fallback: bool) -> list[tuple[str, str]]:
 
 def _with_retries(fn, *args, attempts: int = 2):
     """Retry with exponential backoff (1s, 2s, ...) for transient errors like overload.
-    Quota errors aren't retried: they won't clear in seconds."""
-    for i in range(attempts):
+
+    Rate limits (HTTP 429) depend on how long Google says to wait: a per-minute limit
+    (retry in ~6s) is waited out on the same model, which is far faster than falling
+    back to a local model; a daily quota (retry in hours) is raised so the caller can
+    skip the model."""
+    failures = rate_waits = 0
+    while True:
         try:
             return fn(*args)
         except LLMError:
             raise
         except Exception as exc:
-            if i == attempts - 1 or _quota_cooldown(exc) is not None:
+            cooldown = _quota_cooldown(exc)
+            if cooldown is not None:
+                if cooldown > MAX_RATE_LIMIT_WAIT_S or rate_waits >= MAX_RATE_LIMIT_WAITS:
+                    raise
+                rate_waits += 1
+                log.info("Rate limited; waiting %.0fs and retrying", cooldown + 1)
+                time.sleep(cooldown + 1)
+                continue
+            failures += 1
+            if failures >= attempts:
                 raise
-            wait = 2**i
+            wait = 2 ** (failures - 1)
             log.warning("LLM call failed (%s); retrying in %ss", exc, wait)
             time.sleep(wait)
 
@@ -133,11 +152,11 @@ def generate(
     json_mode: bool = False,
     temperature: float = 0.2,
     provider: str | None = None,
-    fallback: bool = True,
+    fallback: bool | None = None,
 ) -> str:
     """Send a prompt to the configured LLM and return its text reply.
 
-    With fallback=True, if the chosen model fails the next candidate is tried
+    With fallback (default: config.LLM_FALLBACK), if the chosen model fails the next one is tried
     (main Gemini model -> lighter Gemini model -> Ollama, or Ollama first in offline mode).
     """
     return generate_with_model(prompt, system, json_mode, temperature, provider, fallback)[0]
@@ -149,13 +168,15 @@ def generate_with_model(
     json_mode: bool = False,
     temperature: float = 0.2,
     provider: str | None = None,
-    fallback: bool = True,
+    fallback: bool | None = None,
 ) -> tuple[str, str]:
     """Like generate(), but also returns which model replied, e.g. "gemini / gemini-3.5-flash-lite"."""
     primary = (provider or config.LLM_PROVIDER).lower()
     if primary not in _PROVIDERS:
         raise LLMError(f"Unknown LLM provider: {primary!r}. Use 'gemini' or 'ollama'.")
 
+    if fallback is None:
+        fallback = config.LLM_FALLBACK
     errors = []
     for name, model in _candidates(primary, fallback):
         wait = _cooldown_until.get(model, 0) - time.time()

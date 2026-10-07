@@ -77,3 +77,35 @@ def test_quota_error_skips_model_for_retry_delay(models, monkeypatch):
 def test_overload_is_not_treated_as_quota():
     assert llm._quota_cooldown(RuntimeError("503 UNAVAILABLE high demand")) is None
     assert llm._quota_cooldown(QuotaError("429")) == llm.DEFAULT_COOLDOWN_S
+
+
+def test_per_minute_rate_limit_is_waited_out_on_same_model(models, monkeypatch):
+    monkeypatch.setattr(llm, "_cooldown_until", {})
+    sleeps, calls = [], []
+    monkeypatch.setattr(llm.time, "sleep", sleeps.append)
+
+    def gemini(model, *a):
+        calls.append(model)
+        if len(calls) == 1:
+            raise QuotaError("429 RESOURCE_EXHAUSTED PerMinute {'retryDelay': '6s'}")
+        return f"reply from {model}"
+
+    monkeypatch.setattr(llm, "_PROVIDERS", {"gemini": gemini, "ollama": gemini})
+    assert llm.generate("a") == "reply from g-main"
+    assert calls == ["g-main", "g-main"] and sleeps == [7]
+    assert "g-main" not in llm._cooldown_until
+
+
+def test_rate_limit_that_persists_falls_back(models, monkeypatch):
+    monkeypatch.setattr(llm, "_cooldown_until", {})
+    calls = []
+
+    def gemini(model, *a):
+        calls.append(model)
+        if model == "g-main":
+            raise QuotaError("429 {'retryDelay': '6s'}")
+        return "lite"
+
+    monkeypatch.setattr(llm, "_PROVIDERS", {"gemini": gemini, "ollama": gemini})
+    assert llm.generate("a") == "lite"
+    assert calls == ["g-main"] * (1 + llm.MAX_RATE_LIMIT_WAITS) + ["g-lite"]

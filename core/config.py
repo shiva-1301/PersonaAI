@@ -41,6 +41,9 @@ GEMINI_API_KEY = _get("GEMINI_API_KEY")
 GEMINI_MODEL = _get("GEMINI_MODEL", "gemini-3.8-flash")
 # Lighter model tried when the main one is overloaded (503) before falling back to Ollama.
 GEMINI_FALLBACK_MODEL = _get("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash-lite")
+# When a model fails, try the next one (main Gemini -> lighter Gemini -> Ollama).
+# The evaluation turns this off so every answer comes from the same model.
+LLM_FALLBACK = _get("LLM_FALLBACK", "true").lower() not in ("false", "0", "no")
 OLLAMA_MODEL = _get("OLLAMA_MODEL", "llama3.1:8b")
 OLLAMA_HOST = _get("OLLAMA_HOST", "http://localhost:11434")
 

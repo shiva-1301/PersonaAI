@@ -9,3 +9,6 @@ __pycache__/
 
 # App data (uploads, vector DB, SQLite)
 data/
+
+# Evaluation index (rebuilt on demand)
+evaluation/.cache/

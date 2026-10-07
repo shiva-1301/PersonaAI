@@ -143,6 +143,6 @@ Run the tests with `pytest`.
 | Feature 2: Quiz generation | ✅ (awaiting your test) |
 | Feature 3: Weak-topic memory | ✅ (awaiting your test) |
 | Feature 4: Study plan | ✅ (awaiting your test) |
-| Evaluation | ⬜ |
+| Evaluation | ✅ ([report](evaluation/REPORT.md)) |
 | Deployment | ⬜ |
 | Documentation & demo | ⬜ |

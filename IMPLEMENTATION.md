@@ -125,11 +125,14 @@ PersonaAI/
 
 ## Phase 5: Evaluation (Days 9–10)
 
-- [ ] You provide `evaluation/questions.csv`: 15–30 questions with correct answers from your syllabus
-- [ ] `run_eval.py` answers each question **with RAG** and **without RAG** (plain LLM)
-- [ ] An LLM judge plus your manual check scores each answer as correct / partially correct / wrong
-- [ ] Output: accuracy table + chart for the report
-- [ ] Optional: adaptive vs random quiz comparison over several sessions
+- [x] Question set: 60 exam questions with model answers extracted from *BD MID 2 SHORTS.pdf* (`build_questions.py`), split into a development set and a held-out set *(your own past-paper questions can be added to the same CSV format)*
+- [x] `run_eval.py` answers each question **with RAG** (notes = Unit III/IV PDFs only) and **without RAG**, one pinned model, resumable after rate limits
+- [x] Blind, order-randomised LLM judge (correct / partial / wrong) + manual-override columns in `results.csv`
+- [x] Output: accuracy tables + charts (`evaluation/results/*/summary.md`, `chart.png`) and [`evaluation/REPORT.md`](evaluation/REPORT.md)
+- [x] Adaptive vs random quiz comparison: simulation using the app's real allocation and scoring code (`simulate_adaptive.py`)
+- [ ] Your manual check of the judge's verdicts (fill `manual_rag` / `manual_no_rag`, then `--report`)
+
+**Result:** on these questions the plain LLM (98%) beat RAG (85%); RAG was never factually wrong but missed or under-covered answers because of retrieval misses. Adaptive quizzes put 55% vs 25% of questions on weak topics. See the report.
 
 **Done when:** you have a results table showing RAG vs no-RAG accuracy on your own questions.
 

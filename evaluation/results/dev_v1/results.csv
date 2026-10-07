@@ -1,0 +1,549 @@
+id,unit,question,reference_answer,rag_answer,rag_sources,rag_verdict,rag_reason,no_rag_answer,no_rag_verdict,no_rag_reason,model,judge_model,answered_at,manual_rag,manual_no_rag
+1,III,What is Apache Pig?,"1. Pig is a high-level platform for processing large datasets. 2. It is designed to work with Hadoop. 3. It uses Pig Latin, a scripting language, instead of SQL. Example: Pig can process terabytes of log data stored in HDFS.","Apache Pig is a high-level platform for creating MapReduce programs used with Hadoop for large-scale data analysis and batch processing [S1][S3].
+
+* It uses a procedural scripting language called Pig Latin [S1][S3].
+* It operates on a data model of bags, tuples, and fields (semi-structured data) where schemas are optional [S1].
+* It is designed for processing huge datasets (TBs/PBs) on a Hadoop cluster [S1].","BIG_DATA_UNIT-III.pdf, p. 5; BIG_DATA_UNIT-III.pdf, p. 1",correct,"It successfully covers all key points from the reference answer including the platform definition, Hadoop integration, Pig Latin, and large-scale data processing.","Apache Pig is a high-level platform and query language used for analyzing large datasets on Hadoop.
+
+* **Pig Latin Language:** Uses a procedural data-flow language called Pig Latin, which allows developers to write complex data transformations without writing low-level Java MapReduce code.
+* **Abstraction Layer:** Sits on top of Hadoop, translating Pig Latin scripts into a series of optimized MapReduce (or Tez/Spark) jobs automatically.
+* **Schema Flexibility:** Supports both structured and semi-structured data through a flexible, schema-optional data model (atoms, tuples, bags, and maps).
+* **Extensibility:** Allows developers to write User Defined Functions (UDFs) in languages like Java, Python, or Ruby for custom data processing.
+
+**Example:**
+To load data, filter it, and dump the results in Pig Latin:
+```pig
+rawData = LOAD 'input.txt' USING PigStorage(',') AS (id:int, name:chararray, age:int);
+filteredData = FILTER rawData BY age > 30;
+DUMP filteredData;
+```",correct,"It accurately captures that Pig is a high-level platform for large datasets on Hadoop, mentions Pig Latin, and includes a relevant example.",gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:00:36,,
+2,III,What is Pig Latin?,1. Pig Latin is a high-level scripting language for Hadoop. 2. It follows a data-flow model. 3. The output of one operation becomes the input to the next operation. Example: A = LOAD 'users.txt'; B = FILTER A BY age > 18;,"Pig Latin is a high-level scripting language designed to process large-scale datasets on Hadoop using a data flow model [S1].
+
+* Its structure is based on a data flow model where the output of one operation is fed as input into the next, allowing developers to build modular, readable, and maintainable scripts [S1].
+* The data model consists of collections of tuples called relations, which are similar to tables in a database and store intermediate results for subsequent operations [S1][S2].
+* A typical Pig Latin script follows a general structure of loading data from HDFS or local storage, transforming data through filtering, grouping, or joining, and then storing or displaying the results [S1].
+
+Example of a LOAD statement syntax:
+`relation = LOAD 'path' USING loader AS schema;` [S5]","BIG_DATA_UNIT-III.pdf, p. 7; BIG_DATA_UNIT-III.pdf, p. 22; BIG_DATA_UNIT-III.pdf, p. 8",correct,"It successfully covers that Pig Latin is a high-level scripting language for Hadoop using a data-flow model where operations chain together, matching all reference points.","Pig Latin is a high-level data-flow programming language used with Apache Pig for expressing data analysis programs on large datasets in Hadoop.
+
+* **Procedural Data-Flow:** Unlike declarative SQL, Pig Latin allows developers to write data transformations as a sequence of steps (steps like `LOAD`, `FILTER`, `GROUP BY`, and `STORE`).
+* **Abstraction over MapReduce:** It automatically compiles Pig Latin scripts into a series of optimized MapReduce (or Tez) jobs, saving developers from writing complex Java MapReduce code.
+* **Complex Data Types:** It natively supports nested and complex data types such as tuples, bags, and maps, making it ideal for semi-structured data.
+* **Extensibility:** It allows users to write User Defined Functions (UDFs) in languages like Java, Python, or Ruby to perform custom data processing.
+
+**Example:**
+```pig
+-- Load user data, filter for active users, and group by country
+users = LOAD 'users_file' USING PigStorage(',') AS (id:chararray, name:chararray, status:chararray, country:chararray);
+active_users = FILTER users BY status == 'ACTIVE';
+grouped_users = GROUP active_users BY country;
+DUMP grouped_users;
+```",correct,It accurately describes Pig Latin as a high-level data-flow programming language for Hadoop with appropriate examples and accurate extra details.,gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:00:51,,
+3,III,What are statements in Pig Latin?,"1. Statements are the basic building blocks of a Pig script. 2. They perform operations such as loading, filtering, transforming, and storing. 3. They assign intermediate results to relations. Example: adults = FILTER users BY age >= 18;","Statements in Pig Latin are the building blocks of a Pig script that perform specific operations on data and contribute to the overall data flow [S1].
+
+* **Purpose:** Execute data operations (such as loading, filtering, transforming, aggregating, or storing), assign intermediate results to relations for subsequent operations, and define the logical flow of data processing [S1].
+* **Types:** Include `LOAD`, `STORE`, `FOREACH...GENERATE`, `FILTER`, and `GROUP`/`COGROUP` statements [S1].
+* **Example / Syntax:** 
+  * Syntax for a LOAD statement: `relation = LOAD 'path' USING loader AS schema;` [S1]
+  * Example of a FILTER statement: `adults = FILTER users BY age >= 18;` [S1]","BIG_DATA_UNIT-III.pdf, p. 8",correct,"The answer accurately captures the building blocks, operations, assignment to relations, and includes the exact example from the reference answer.","Statements in Pig Latin are operators or instructions that process data by transforming relations through a series of step-by-step data manipulations.
+
+* **Definition:** They are the fundamental units of execution in a Pig Latin script, where each statement typically reads input, applies a transformation, and outputs a new relation.
+* **Imperative yet Declarative:** Unlike traditional SQL, Pig Latin scripts are imperative (written as a step-by-step sequence of operations), but the underlying execution engine (MapReduce/Tez) optimizes them declaratively.
+* **Lazy Evaluation:** Statements are not executed immediately when read; Pig waits until an output action (like `DUMP` or `STORE`) is called before running the execution plan.
+* **Basic Categories:** Can be categorized into loading/storing data (`LOAD`, `STORE`), transformations (`FILTER`, `FOREACH`, `JOIN`, `GROUP`), and utility commands (`DESCRIBE`, `EXPLAIN`).
+
+**Example:**
+```pig
+users = LOAD 'users.txt' USING PigStorage(',') AS (id:int, name:chararray);
+filtered_users = FILTER users BY id > 100;
+DUMP filtered_users;
+```
+*(Here, the `LOAD`, `FILTER`, and `DUMP` lines are all individual Pig Latin statements).*",correct,"The answer covers all main points of the reference answer including building blocks, operations, and assigning to relations, while providing accurate and relevant extra details.",gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:01:17,,
+4,III,What are the primitive data types in Pig Latin?,"1. int and long represent integer values. 2. float and double represent decimal values. 3. chararray represents strings and bytearray represents raw binary data. Example: age:int, salary:double, name:chararray","Primitive data types in Pig Latin are the basic data types supported to handle simple data structures [S1][S2].
+- **int**: 32-bit signed integer values [S1]
+- **long**: 64-bit signed integer values [S1]
+- **float**: Single-precision floating-point numbers [S1]
+- **double**: Double-precision floating-point numbers [S1]
+- **chararray**: String data type used for text [S1]
+- **bytearray**: Raw binary data; used when type is unknown or for custom parsing [S1]","BIG_DATA_UNIT-III.pdf, p. 11; BIG_DATA_UNIT-III.pdf, p. 1",correct,It accurately lists all primitive data types mentioned in the reference answer and provides appropriate descriptions.,"Pig Latin primitive data types are the basic, atomic scalar data types used to represent single values in a dataset.
+
+*   **int:** Signed 32-bit integer.
+*   **long:** Signed 64-bit integer.
+*   **float:** Signed 32-bit floating-point number.
+*   **double:** Signed 64-bit floating-point number.
+*   **chararray:** Unicode character string (text).
+*   **bytearray:** Unparsed byte array (binary data), serving as the default type.
+*   **boolean:** Logical true/false value.
+*   **DateTime:** Date and time representation (introduced in newer versions).
+
+**Example:**
+In a relation schema definition, primitive types are assigned to fields like this: 
+`users: {id: int, name: chararray, score: double}`.",correct,It successfully identifies all primitive data types from the reference answer and includes accurate examples and extra valid details.,gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:01:38,,
+5,III,What is a Tuple in Pig?,"1. A tuple is an ordered set of fields. 2. Its fields can contain different data types. 3. It is similar to a row in a relational table. Example: (id:int, name:chararray, age:int)","A tuple in Pig is a record that represents a collection of fields, which are organized into relations similar to tables in a database [S1].
+
+* Relations are made up of collections of tuples [S1].
+* Tuples can be processed, filtered, grouped, and transformed using various Pig Latin operators and expressions [S1][S3][S4][S5].","BIG_DATA_UNIT-III.pdf, p. 7; BIG_DATA_UNIT-III.pdf, p. 19; BIG_DATA_UNIT-III.pdf, p. 11; BIG_DATA_UNIT-III.pdf, p. 8",partial,"It mentions that a tuple is a collection of fields similar to a table row, but it misses the explicit points about being an ordered set and having fields of different data types.","A tuple in Apache Pig is an ordered, fixed-length collection of fields where each field can contain any data type.
+
+* **Ordered Sequence:** Fields within a tuple are accessed by their position (indexed starting from 0, such as `$0`, `$1`).
+* **Heterogeneous Data:** Unlike traditional arrays, fields in a tuple do not need to be of the same data type; they can mix ints, longs, floats, chararrays, maps, etc.
+* **Basic Building Block:** It represents a single record or row in a Pig relation, analogous to a row in a relational database table.
+
+**Example:**
+`(101, ""Alice"", 75.5)` represents a tuple containing an integer ID, a string name, and a double score.",correct,"It accurately covers all points from the reference answer including ordered fields, heterogeneous data types, and analogy to a relational table row with an example.",gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:01:45,,
+6,III,What is a Map in Pig?,"1. A Map is a collection of key-value pairs. 2. Its keys are strings. 3. Values can be of different data types. Example: [""name""#""John"", ""age""#30]","I couldn't find this in your notes. Try rephrasing, or upload the material that covers it.",,wrong,Abstained: answer not found in the notes.,"A Map in Apache Pig is a complex data type representing a collection of key-value pairs, where the keys are character arrays (strings) and the values can be of any data type.
+
+* **Syntax:** Defined using square brackets, with keys and values separated by `#` (e.g., `[ 'name'# 'Alice', 'age'# '25' ]`).
+* **Key Restrictions:** Keys must always be of type `chararray`.
+* **Value Flexibility:** Values can be heterogeneous (different data types) and can even be nested data types like tuples, bags, or other maps.
+* **Accessing Data:** Elements are accessed using the key name in brackets or dot notation (e.g., `my_map#'name'` or `my_map.name`).
+
+**Example:**
+```pig
+-- Defining a map storing student metadata
+DEFINE student_info [ 'major'# 'Computer Science', 'gpa'# '3.8' ];
+```",correct,"It accurately states that a Map is a collection of key-value pairs with string keys and heterogeneous values, and includes a proper example.",gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:01:54,,
+7,III,What are the benefits of using schemas?,1. Schemas help detect type mismatches and missing fields. 2. They make Pig scripts easier to read and maintain. 3. They allow fields to be referenced by name instead of position. Example: FILTER users BY age >= 18; uses the field name age.,"Schemas in Pig Latin define the structure of data, including field names and data types, to provide clarity and improve processing [S2].
+
+* **Error Detection:** Catch type mismatches or missing fields early, and prevent runtime errors through validation [S1][S2].
+* **Readability & Maintainability:** Scripts become easier to understand, modify, and extend [S1][S2].
+* **Field Referencing:** Allow field referencing by name rather than position, which reduces errors [S1].
+* **Integration:** Facilitate interaction with relational systems, HBase, and other analytics tools that expect structured data [S1][S2].","BIG_DATA_UNIT-III.pdf, p. 14; BIG_DATA_UNIT-III.pdf, p. 13",correct,"It accurately captures all the key points from the reference answer regarding error detection, readability, maintainability, and field referencing.","Schemas provide a formal structure for data, ensuring consistency, improved performance, and easier integration across big data systems.
+
+* **Data Quality and Integrity:** Enforces constraints on data types, formats, and nullability, preventing ""bad"" or corrupted data from entering the system.
+* **Query Optimization:** Allows query engines (like Hive, Spark, or relational databases) to use metadata for efficient data skipping, indexing, and execution planning.
+* **Improved Maintainability:** Serves as explicit documentation of the data structure, making it easier for data engineers and analysts to understand and query datasets.
+* **Efficient Storage:** Enables columnar storage formats (like Parquet or ORC) to apply targeted compression algorithms based on known data types.
+
+**Example:** In Apache Spark, defining a DataFrame schema explicitly (`StructType`) prevents the engine from having to scan the entire dataset to infer types, speeding up ingestion and preventing runtime type-mismatch errors.",partial,"While it provides general database benefits like performance and optimization, it misses the specific Pig-related benefits mentioned in the reference answer such as referencing fields by name.",gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:02:14,,
+8,III,What is the FILTER operator?,1. FILTER selects tuples based on a condition. 2. It removes records that do not satisfy the condition. 3. It is useful for selecting specific subsets of data. Example: adults = FILTER users BY age >= 18;,"The FILTER operator is a data processing operator used to select tuples based on conditions [S1][S2].
+- Selects specific tuples that satisfy a given condition [S1][S2].
+- Functions as part of data transformation [S2].
+- Example: `adults = FILTER A BY age >= 18 AND city == 'Delhi';` [S3]","BIG_DATA_UNIT-III.pdf, p. 2; BIG_DATA_UNIT-III.pdf, p. 7; BIG_DATA_UNIT-III.pdf, p. 10",correct,It successfully covers all the main points from the reference answer including tuple selection based on conditions and provides a valid example.,"The **FILTER** operator is a relational algebra and data processing operation used to extract a subset of tuples (rows) from a dataset that satisfy a specified boolean condition or predicate.
+
+* **Purpose:** It acts as a row-level condition to remove unwanted data and reduce dataset size early in a pipeline.
+* **Characteristics:** It preserves the schema (the columns remain unchanged) while reducing the cardinality (number of rows).
+* **Big Data Context:** In frameworks like Apache Spark or Apache Pig, FILTER is a ""narrow transformation,"" meaning it can be executed independently on partitions without requiring a shuffle across the network.
+* **Example:** In Spark SQL/DataFrames:
+  `df.filter(df(""age"") > 21)` returns only the rows where the `age` column is strictly greater than 21.",correct,"It accurately explains that the FILTER operator selects tuples based on a condition and removes records that do not satisfy it, while adding relevant extra details.",gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:02:38,,
+9,III,What are GROUP and COGROUP operators?,1. GROUP organizes tuples based on a specified key. 2. It is commonly used for aggregation. 3. COGROUP can group data from multiple relations. Example: grouped = GROUP orders BY customer_id;,"GROUP and COGROUP are data processing operators used to organize and combine data [S1][S3].
+
+* **GROUP:** Organizes tuples for aggregation by grouping data based on a specified field or condition [S1][S3].
+* **COGROUP:** Allows grouping across multiple relations [S2].
+
+Example:
+`grouped = GROUP orders BY customer_id;` [S2]","BIG_DATA_UNIT-III.pdf, p. 2; BIG_DATA_UNIT-III.pdf, p. 9; BIG_DATA_UNIT-III.pdf, p. 7",correct,"It covers all the main points from the reference answer, including the definitions of GROUP and COGROUP and the correct example.","`GROUP` and `COGROUP` are relational-style data transformation operators used in parallel data processing frameworks (like Apache Pig) to aggregate and organize datasets by specific keys.
+
+*   **GROUP:** Collects records from a *single* dataset that share the same key into a single bag (or group) to perform aggregations.
+*   **COGROUP:** An extension of `GROUP` that operates on *two or more* datasets simultaneously, grouping records from all input datasets by a common key and creating a tuple of bags for each dataset.
+*   **Key Difference:** `GROUP` works on one relation (producing one bag per key), whereas `COGROUP` works on multiple relations (producing aligned bags per key, similar to a full outer join).
+
+**Example:**
+*   `GROUP orders BY customer_id;` collects all order records for each unique customer.
+*   `COGROUP customers BY customer_id, orders BY customer_id;` groups both datasets together, resulting in a single record per customer containing their profile data alongside a bag of all their respective orders.",correct,"It accurately explains both GROUP and COGROUP, includes the example, and provides correct extra detail without contradicting the reference.",gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:02:45,,
+10,III,What are UNION and SPLIT operators?,"1. UNION combines multiple relations into one. 2. SPLIT divides one relation into multiple relations. 3. SPLIT uses conditions to determine where records go. Example: SPLIT users INTO adults IF age >= 18, minors IF age < 18;","UNION and SPLIT are data processing operators used to combine or divide datasets [S1].
+
+* **UNION Statement:** Merges multiple relations into one [S2].
+  * *Syntax/Example:* `all_users = UNION users1, users2;` [S2]
+* **SPLIT Statement:** Divides a relation into multiple relations based on conditions [S2].
+  * *Syntax/Example:* `SPLIT users INTO adults IF age >= 18, minors IF age < 18;` [S2]","BIG_DATA_UNIT-III.pdf, p. 2; BIG_DATA_UNIT-III.pdf, p. 9",correct,"It perfectly captures all the main points from the reference answer, including definitions, mechanics, and the exact example provided.","**UNION** and **SPLIT** are data stream operators used to combine or divide datasets based on specific conditions.
+
+*   **UNION**: Combines two or more data streams or datasets with identical schemas into a single, unified stream.
+*   **SPLIT**: Divides a single data stream into two or more separate streams based on a specific routing condition or predicate (often a precursor to filtering).
+
+**Example:**
+In Apache Flink or Spark Streaming, you might use `SPLIT` to separate a stream of IoT sensor data into `HighTemperatureStream` and `NormalTemperatureStream` based on a threshold, and later use `UNION` to merge the `NormalTemperatureStream` with another regional data stream before final processing.",correct,"It accurately explains both UNION and SPLIT as operators that combine and divide datasets, and provides clear contextual examples.",gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:02:50,,
+11,III,What is a Pig macro?,1. A macro is a reusable block of Pig Latin code. 2. It reduces repetitive code. 3. It improves script readability and maintainability. Example: DEFINE filterAdults(relation) { ... } can be reused for different relations.,"Macros in Pig Latin are reusable blocks of code that encapsulate frequently used operations to reduce redundancy and simplify script maintenance [S1].
+
+* **Purpose:** They promote code reusability, break complex scripts into smaller parts, and make scripts more readable and maintainable [S1].
+* **Definition:** Defined using the DEFINE or MACRO keyword followed by a name and parameters [S1].
+* **Syntax and Example:** 
+  `DEFINE macro_name(parameter1, parameter2, ...) { -- Pig Latin statements }` [S1]
+  Example: `DEFINE filterAdults(relation) { filtered = FILTER relation BY age >= 18; GENERATE filtered; }` [S1][S3]","BIG_DATA_UNIT-III.pdf, p. 17; BIG_DATA_UNIT-III.pdf, p. 18",correct,"It accurately covers reusability, reduction of repetitive code, readability, and maintainability with a valid example.","A Pig macro is a reusable block of Apache Pig Latin statements that allows users to encapsulate complex logic and invoke it multiple times with different parameters.
+
+* **Encapsulation:** Groups a sequence of Pig Latin operations into a single logical unit to reduce code duplication.
+* **Parameterization:** Accepts input parameters and variables, making the enclosed logic dynamic and reusable across different datasets.
+* **Scope Isolation:** Operates within its own namespace, preventing variable name conflicts with the main script.
+* **Defined via `DEFINE`:** Created using the `DEFINE` keyword followed by the macro name, arguments, and a block of Pig Latin statements terminated by `END`.
+
+**Example:**
+```pig
+-- Define the macro
+DEFINE filter_and_project(input_rel, threshold) RETURNS output_rel {
+    filtered = FILTER $input_rel BY score > $threshold;
+    $output_rel = FOREACH filtered GENERATE user_id, score;
+};
+
+-- Use the macro
+raw_data = LOAD 'data.txt' USING PigStorage(',') AS (user_id:chararray, score:int);
+high_scorers = filter_and_project(raw_data, 80);
+DUMP high_scorers;
+```",correct,"It correctly identifies a Pig macro as a reusable block of statements, explains its benefits, and provides an accurate example.",gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:02:58,,
+12,III,What is a Filter UDF?,1. A Filter UDF applies a custom filtering condition. 2. It returns whether a tuple should be accepted. 3. It is useful for complex filtering logic. Example: An AgeFilter UDF can return true only when age > 18.,"A Filter UDF is a user-defined function used to filter tuples based on a condition or custom logic [S1][S2].
+
+* Purpose: Filters tuples based on a condition, handles custom filtering logic, and is used to remove records like those with invalid email addresses [S1][S2].
+* Implementation: Typically written in Java, extending Pig's abstract `FilterFunc` class, and must be compiled into a JAR file and registered using the `REGISTER` command before use [S2][S4].
+* Syntax / Example: 
+  `REGISTER 'myFilterUDF.jar';`
+  `B = FILTER A BY myFilterUDF(field);` [S2]","BIG_DATA_UNIT-III.pdf, p. 2; BIG_DATA_UNIT-III.pdf, p. 19; BIG_DATA_UNIT-III.pdf, p. 21",correct,"It successfully covers custom filtering conditions, tuple handling, and complex logic with a relevant example, aligning well with the reference answer.","A **Filter User Defined Function (UDF)** is a custom function that evaluates a boolean condition on data records, returning `true` to keep the record or `false` to discard it.
+
+* **Purpose:** Allows developers to implement custom, complex filtering logic not covered by standard SQL operators.
+* **Execution:** Executed row-by-row on distributed dataframes/datasets within a Big Data framework (like Apache Spark or Hive).
+* **Performance Consideration:** Can cause performance bottlenecks due to row-level processing overhead and potential disruption of catalyst optimizer pushdowns (e.g., predicate pushdown).
+
+**Example (PySpark):**
+```python
+from pyspark.sql.functions import udf
+from pyspark.sql.types import BooleanType
+
+# Define UDF to filter out numbers less than 10
+is_large = udf(lambda x: x > 10, BooleanType())
+filtered_df = df.filter(is_large(df[""value""]))
+```",correct,"It accurately captures all points from the reference answer including custom filtering, tuple acceptance/rejection, complex logic, and provides a fitting example.",gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:03:04,,
+13,III,What is a Load UDF?,1. A Load UDF provides a custom method of reading data. 2. It is useful for non-standard data sources. 3. It can handle formats such as JSON or XML. Example: A = LOAD 'data.json' USING myLoadUDF();,"A Load UDF is a custom function in Pig used to read data from non-standard sources [S2].
+
+* **Purpose:** Provides a custom way of reading data from a source, such as loading JSON data or XML files [S2].
+* **Implementation & Usage:** Typically written in Java (extending Pig's `LoadFunc` class), compiled into a JAR file, registered in the Pig script, and used with the `USING` keyword [S2][S4].
+
+**Syntax and Example:**
+```pig
+REGISTER 'myLoadUDF.jar';
+A = LOAD 'data.json' USING myLoadUDF();
+``` [S2]","BIG_DATA_UNIT-III.pdf, p. 20; BIG_DATA_UNIT-III.pdf, p. 21",correct,"It successfully covers all points from the reference answer including purpose, non-standard sources, format examples, and syntax.","A Load UDF (User-Defined Function) is a custom script or function used in big data processing frameworks (like Apache Pig or Hive) to define how data should be read from a storage system into the processing pipeline.
+
+* **Purpose:** Extends the framework's default data-loading capabilities to handle custom, non-standard, or proprietary file formats.
+* **Mechanism:** It acts as a bridge between raw storage (e.g., HDFS, S3, custom databases) and the processing engine's internal data structures, parsing raw bytes into records or tuples.
+* **Common Use Cases:** Reading legacy data formats, compressed files requiring custom decompression, or streaming data directly from a message queue.
+* **Example:** In Apache Pig, implementing a custom `LoadFunc` interface allows you to parse a proprietary XML log format directly into a relation instead of relying on standard comma-delimited loaders.",correct,It accurately describes a Load UDF as a custom method for reading non-standard data formats with detailed and accurate context.,gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:03:09,,
+14,III,What are the main components of Flume?,1. Source receives data from external sources. 2. Channel temporarily stores the events. 3. Sink delivers events to the final destination. Example: External Source → Source → Channel → Sink → HDFS,"The core components of Flume are the Event, Source, Channel, and Sink, which work together within an agent following the architecture flow of Source to Channel to Sink [S1][S2][S3].
+
+* **Event:** The basic unit of data in Flume, usually a single log entry or message [S1].
+* **Source:** The component that receives data from external sources and converts it into Flume events (examples include Avro Source, Thrift Source, and Syslog Source) [S1][S2].
+* **Channel:** The temporary storage between the source and the sink, with types including Memory Channel, File Channel, and JDBC Channel [S2][S3].
+* **Sink:** The component that delivers events to the final destination (examples include HDFS Sink, HBase Sink, and Logger Sink) [S2].","BIG_DATA_UNIT-III.pdf, p. 23; BIG_DATA_UNIT-III.pdf, p. 24; BIG_DATA_UNIT-III.pdf, p. 26",correct,"It accurately lists all the main components from the reference answer (Source, Channel, Sink) along with the Event, and provides correct descriptions and extra detail without any contradictions.","Apache Flume is a distributed, reliable, and available service for efficiently collecting, aggregating, and moving large amounts of streaming log data from multiple sources to a centralized data store.
+
+* **Source:** The component that consumes data from external origins (e.g., web servers) and delivers it to a Channel in the form of Events.
+* **Channel:** A transient, persistent memory or file-based queue that acts as a bridge between the Source and the Sink, storing events until they are consumed.
+* **Sink:** The component that removes events from the Channel and forwards them to their final destination (e.g., HDFS, HBase) or the next hop.
+* **Event:** The basic unit of data in Flume, consisting of a payload of byte array along with an optional set of string headers.
+* **Agent:** An independent JVM process containing the running components (Source, Channel, Sink) that manage the flow of events from an external source to a destination.
+
+**Example:** 
+An *Exec Source* tails a local log file, pushes the log lines as *Events* into a *Memory Channel*, and an *HDFS Sink* reads those events from the channel and writes them to a Hadoop HDFS cluster.",correct,It successfully identifies all the main components of Flume as outlined in the reference answer while including helpful architectural context and a valid example.,gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:03:16,,
+15,III,What is the HDFS Sink in Flume?,"1. HDFS Sink writes collected events directly into HDFS. 2. It supports file rolling based on time, size, or number of events. 3. It uses transactions to provide reliable data writing. Example: agent1.sinks.hdfsSink.type = hdfs writes events to an HDFS path.","An HDFS Sink is a Flume component that writes collected events directly to HDFS [S5].
+
+* Writes events from the channel to HDFS with transactional guarantees for atomic writes and fault tolerance [S3, S5].
+* Supports configurable file roll policies based on size, time, or the number of events [S5].
+* Example configuration [S5]:
+  ```text
+  agent1.sinks.hdfsSink.type = hdfs
+  agent1.sinks.hdfsSink.hdfs.path = hdfs://namenode/flume/events/%Y/%m/%d/%H/
+  agent1.sinks.hdfsSink.hdfs.fileType = DataStream
+  agent1.sinks.hdfsSink.hdfs.rollInterval = 60
+  ```","BIG_DATA_UNIT-III.pdf, p. 26",correct,"It captures all core points from the reference answer including writing to HDFS, transactional guarantees, file rolling, and an example.","An HDFS Sink in Apache Flume is a terminal component that writes incoming event data directly into the Hadoop Distributed File System (HDFS).
+
+* **Purpose:** Transfers data collected from various sources (like logs or application metrics) into HDFS for long-term storage and big data processing.
+* **File Management:** Supports rolling files based on time (`hdfs.rollInterval`), file size (`hdfs.rollSize`), or number of events (`hdfs.rollCount`) to prevent excessively large or small files.
+* **Serialization & Compression:** Allows data to be serialized into specific formats (e.g., Text, Avro) and compressed on the fly (e.g., Gzip, Bzip2) to optimize storage.
+* **Bucket/Directory Partitioning:** Can dynamically create HDFS directory paths and file names using interceptors and timestamps (e.g., partitioning by date or IP address).
+
+**Example:**
+If configured with `hdfs.path = hdfs://namenode/logs/%y-%m-%d/%H/`, the HDFS sink automatically creates time-based directories and streams incoming Flume events into rolling files inside them.",correct,"It accurately covers writing events to HDFS, file rolling, and provides an example, while adding valid extra details.",gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:03:21,,
+16,IV,What is Apache Hive?,1. Hive is a data warehouse framework built on Hadoop. 2. It provides an SQL-like language called HiveQL. 3. It is mainly used for batch processing and data analytics. Example: A company can use Hive to calculate the average salary of employees stored in HDFS.,"Apache Hive is a data warehouse framework built on top of Hadoop that allows users to query, manage, and analyze large datasets stored in HDFS using a SQL-like language called HiveQL [S1].
+
+* Acts as a bridge between SQL and MapReduce, automatically translating HiveQL queries into MapReduce, Tez, or Spark jobs without requiring Java code [S1].
+* Provides features such as support for structured, semi-structured, and unstructured data, Schema on Read, and extensibility through UDFs [S4][S5].
+* Optimized for batch processing, OLAP workloads, and analytics, but not suitable for real-time transactions (OLTP) [S4][S5].
+
+Example:
+```sql
+CREATE TABLE employees ( 
+    id INT, 
+    name STRING, 
+    salary FLOAT, 
+    dept STRING 
+) 
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' 
+STORED AS TEXTFILE;
+
+LOAD DATA LOCAL INPATH '/home/data/employees.csv' INTO TABLE employees;
+
+SELECT dept, AVG(salary) FROM employees GROUP BY dept;
+``` [S5]","BIG_DATA_UNIT-4.pdf, p. 1; BIG_DATA_UNIT-4.pdf, p. 3; BIG_DATA_UNIT-4.pdf, p. 2",correct,"It accurately captures all core aspects of the reference answer, including the data warehouse nature, Hadoop foundation, HiveQL, and provides a fitting analytical example.","Apache Hive is a distributed data warehouse software built on top of Apache Hadoop for querying and managing large datasets using a SQL-like interface.
+
+* **SQL-like Abstraction:** Translates HiveQL (HQL) queries into MapReduce, Tez, or Apache Spark jobs, eliminating the need to write complex Java code.
+* **Schema-on-Read:** Applies a schema to unstructured or semi-structured data at the time it is queried rather than when it is loaded.
+* **Catalog Integration:** Uses a metadata repository called the Hive Metastore to store table definitions, schemas, and data locations.
+* **Extensibility:** Supports user-defined functions (UDFs) for custom data processing and optimization features like partitioning and bucketing.
+
+*Example:* Instead of writing a custom Java MapReduce program to find the average age of users from a 10TB log file in HDFS, a data engineer simply runs:
+`SELECT AVG(age) FROM users WHERE country = 'USA';`",correct,"It covers all main points of the reference answer including the Hadoop foundation, HiveQL, batch processing/analytics, and includes a relevant example.",gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:03:26,,
+17,IV,What is Schema-on-Read in Hive?,1. Schema-on-Read means the schema is applied when data is read. 2. Data does not need to follow a strict schema while being stored. 3. It is useful for handling large and varied datasets. Example: Raw log files can be stored in HDFS first and their columns can be interpreted when queried by Hive.,"Schema on Read is a feature where the schema is applied when data is read, rather than when it is stored [S1].
+
+* Data is stored without enforcing a schema initially, supporting structured, semi-structured, and unstructured data in HDFS [S1].
+* The defined schema is applied dynamically only at the time of querying or reading the data [S1].","BIG_DATA_UNIT-4.pdf, p. 2",correct,"It accurately explains that the schema is applied at read time and data is stored without an initial schema, aligning well with the reference points.","**Schema-on-Read** is a data management approach where the structure (schema) of the data is applied only when the data is read or queried, rather than when it is written to storage.
+
+* **Deferred Validation:** Data is loaded into the distributed file system (e.g., HDFS) in its raw, unparsed format without any type checking or validation.
+* **Storage Flexibility:** Allows unstructured, semi-structured, and structured data (like JSON, CSV, or logs) to be ingested quickly and cheaply.
+* **Logical Abstraction:** Hive uses metadata to project a relational table structure over the raw files dynamically at query time.
+* **Trade-offs:** Enables fast ingestion times and schema evolution, but shifts the performance overhead to query execution and can lead to runtime errors if data does not match the expected schema.
+
+**Example:**
+You can load a raw Apache log file containing arbitrary text strings into HDFS instantly. When a user runs a Hive query, they define a table schema (e.g., `CREATE TABLE logs (ip STRING, timestamp STRING);`), and Hive parses the raw text lines against that schema on the fly as it executes the `SELECT` statement.",correct,"It thoroughly covers all the main points of the reference answer, including storage flexibility and a proper example of querying raw logs.",gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:05:54,,
+18,IV,What are the main components of Hive architecture?,"1. User Interface provides CLI, Web UI and JDBC/ODBC access. 2. Driver, Compiler and Metastore manage queries and metadata. 3. Execution Engine and HDFS execute jobs and store actual data. Example: A user submits a query through the Hive CLI; the Driver processes it and the Execution Engine accesses data in HDFS.","Hive's architecture consists of several main layers and components that manage query execution, metadata, and data storage [S1].
+
+* **User Interface:** Includes CLI, Web UI, and JDBC/ODBC, which send queries to the driver [S1].
+* **Driver:** Manages query execution (including parsing and optimization) and manages sessions and interactions [S1][S5].
+* **Compiler (HiveQL Processor):** Converts HiveQL into an execution plan and checks syntax and query requirements [S1][S5].
+* **Metastore:** Stores and manages metadata about databases, tables, and partitions [S1][S5].
+* **Execution Engine:** Executes query jobs and converts HiveQL into jobs, while also handling metadata operations with the Metastore [S1][S5].
+* **HDFS:** Stores the actual data [S1].","BIG_DATA_UNIT-4.pdf, p. 4; BIG_DATA_UNIT-4.pdf, p. 5",correct,It comprehensively details all the main architectural components and includes HDFS for data storage as mentioned in the reference answer.,"Apache Hive architecture consists of several core components that work together to translate SQL-like queries (HiveQL) into MapReduce, Tez, or Spark jobs executed on a Hadoop cluster.
+
+* **User Interface (UI):** The client interface (e.g., Hive Web UI, Beeline, Hive CLI) used by users to submit queries and commands to the system.
+* **Driver:** Acts as the central controller that receives queries, implements a session state, and manages the lifecycle of the query execution by calling the compiler, optimizer, and executor.
+* **Compiler:** Parses the HiveQL query, performs semantic analysis on the query block and query columns against the metastore schema, and generates an execution plan.
+* **Metastore:** A centralized repository (typically backed by a relational database like MySQL) that stores all the structural metadata of Hive tables, databases, columns, partitions, and data locations.
+* **Execution Engine (Optimizer):** Takes the logical plan from the compiler and optimizes it, converting it into a Directed Acyclic Graph (DAG) of stages to be executed on the underlying cluster framework (Hadoop MapReduce, Apache Tez, or Apache Spark).
+
+**Example:** When a user runs `SELECT * FROM users WHERE age > 21;` via the **UI**, the **Driver** sends it to the **Compiler**. The compiler checks the schema in the **Metastore**, generates an execution plan, and the **Execution Engine** optimizes and runs the job across the distributed cluster.",correct,It accurately covers all the main components of Hive architecture matching the reference answer and provides a correct example.,gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:06:01,,
+19,IV,What are Hive data types?,"1. Hive data types are broadly divided into Primitive and Complex types. 2. Primitive types include INT, STRING, FLOAT, DOUBLE and BOOLEAN. 3. Complex types include ARRAY, MAP, STRUCT and UNIONTYPE. Example: name STRING is a primitive type, while skills ARRAY<STRING> represents a complex type.","Hive supports data types that are broadly divided into Primitive Types and Complex Types to define the schema of tables [S1].
+
+* **Primitive Types:** Basic, atomic data types including TINYINT, SMALLINT, INT, BIGINT, BOOLEAN, FLOAT, DOUBLE, DECIMAL, STRING, VARCHAR(n), CHAR(n), BINARY, TIMESTAMP, and DATE [S1].
+* **Complex Types:** Nested and collection data types including ARRAY, MAP, STRUCT, and UNIONTYPE [S1][S2].
+
+**Example:**
+* Primitive Example: `INT` (4-byte signed integer, e.g., `10000`) [S1]
+* Complex Example: `ARRAY` (Ordered collection of elements of the same type, e.g., `ARRAY(""red"",""blue"",""green"")`) [S1][S2]","BIG_DATA_UNIT-4.pdf, p. 6; BIG_DATA_UNIT-4.pdf, p. 7",correct,"It comprehensively covers primitive and complex types, includes all key categories from the reference, and provides clear examples.","Apache Hive data types are the categories of values that columns can hold, divided into primitive types, complex types, and literal types.
+
+* **Primitive Types:** Basic scalar types including numbers (TINYINT, INT, BIGINT, FLOAT, DOUBLE), text (STRING, VARCHAR, CHAR), booleans (BOOLEAN), and dates/timestamps (TIMESTAMP, DATE).
+* **Complex Types:** Container types used to model nested or multi-value data, including `ARRAY`, `MAP`, and `STRUCT`.
+* **Literals:** Constant values used in queries, such as string literals ('text'), numeric literals (123), and boolean literals (TRUE).
+
+**Example:**
+Creating a table with mixed data types:
+```sql
+CREATE TABLE employees (
+    id INT,                       -- Primitive
+    name STRING,                  -- Primitive
+    skills ARRAY<STRING>,         -- Complex
+    metadata MAP<STRING, STRING>  -- Complex
+);
+```",correct,It accurately covers primitive and complex types matching the reference answer while adding valid extra detail and an example.,gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:06:06,,
+20,IV,What are complex data types in Hive?,"1. ARRAY stores an ordered collection of elements. 2. MAP stores key-value pairs, while STRUCT stores related attributes. 3. UNIONTYPE can hold values of different types, one at a time. Example: MAP(""name"":""John"",""age"":30) stores employee information as key-value pairs.","Hive complex data types are nested and collection data types supported by Hive [S1].
+
+* ARRAY: Ordered collection of elements of the same type [S1]
+* MAP: Collection of key-value pairs [S1]
+* STRUCT: Group of related attributes like a record [S1]
+* UNIONTYPE: Holds values of different types, only one at a time [S1]
+
+Example syntax:
+* `ARRAY(""red"",""blue"",""green"")` [S1]
+* `MAP(""name"":""John"",""age"":30)` [S1]
+* `STRUCT(""John"", 30, ""HR"")` [S1]
+* `UNIONTYPE(INT, STRING)` [S1]","BIG_DATA_UNIT-4.pdf, p. 7",correct,"It successfully lists all four complex data types mentioned in the reference answer, including UNIONTYPE, and provides correct examples for each.","Complex data types in Hive are specialized data structures that allow a single column to store multiple values or nested records, enabling the representation of non-relational or hierarchical data.
+
+* **STRUCT:** A collection of named fields, where fields can be of different data types (similar to a row or struct in programming languages). Accessed using dot notation (e.g., `column.field`).
+* **MAP:** A collection of key-value pairs of the same type, where keys are used for fast lookups (similar to a hash map or dictionary). Accessed using bracket notation (e.g., `column['key']`).
+* **ARRAY:** An ordered list of elements of the same data type, accessed via zero-based integer indexing (e.g., `column[0]`).
+
+**Example:**
+Storing a user profile where `name` is a `STRING`, `contacts` is a `MAP` of contact types to values (`{'email': 'test@uni.edu'}`), and `scores` is an `ARRAY` of integers (`[90, 85, 95]`).",correct,"It accurately describes ARRAY, MAP, and STRUCT with their main characteristics and provides a relevant example, aligning well with the reference answer.",gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:06:11,,
+21,IV,What are logical operators in Hive?,1. AND returns true when both conditions are true. 2. OR returns true when at least one condition is true. 3. NOT reverses the result of a condition. Example: WHERE age > 25 AND dept = 'IT',"Logical operators are operators used to combine conditions in Hive queries [S2].
+
+* **AND**: Returns TRUE if both conditions are true [S4].
+* **OR**: Returns TRUE if any condition is true [S4].
+* **NOT**: Negates a condition [S4].
+
+**Example:**
+* `age > 25 AND dept = 'IT'` [S4]","BIG_DATA_UNIT-4.pdf, p. 7; BIG_DATA_UNIT-4.pdf, p. 9",correct,"It covers all the main points from the reference answer, including the definitions and the exact example provided.","Logical operators in Hive are boolean operators used in `WHERE` and `HAVING` clauses to combine multiple conditions and control query filtering.
+
+* **`AND`**: Returns TRUE if all combined conditions are true.
+* **`OR`**: Returns TRUE if at least one of the combined conditions is true.
+* **`NOT` / `!`**: Reverses the logical state of the condition it precedes (returns TRUE if the condition is false).
+
+**Example:**
+```hiveql
+SELECT * FROM users 
+WHERE age > 21 AND (country = 'USA' OR country = 'Canada');
+```",correct,"It accurately explains AND, OR, and NOT logical operators along with their behaviors and provides a valid example.",gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:06:15,,
+22,IV,What are aggregate functions in Hive?,"1. Aggregate functions operate on multiple rows. 2. They return a single result such as count, sum or average. 3. Common functions are COUNT(), SUM(), AVG(), MIN() and MAX(). Example: SELECT dept, AVG(salary) FROM employees GROUP BY dept;","Aggregate functions in Hive are built-in functions that operate on multiple rows and return a single value [S1].
+- Key points:
+  - COUNT(expr): Count of rows [S1]
+  - SUM(expr): Sum of values [S1]
+  - AVG(expr): Average value [S1]
+  - MIN(expr): Minimum value [S1]
+  - MAX(expr): Maximum value [S1]
+- Example / Syntax:
+  `SELECT dept, AVG(salary), MAX(salary), COUNT(*) FROM employees GROUP BY dept;` [S1]","BIG_DATA_UNIT-4.pdf, p. 10",correct,"It successfully includes all the core concepts from the reference answer such as operating on multiple rows, returning a single value, listing common functions, and providing a valid example.","Aggregate functions in Hive are built-in functions that perform a mathematical or statistical calculation across multiple rows of a dataset to return a single summary value.
+
+* **Purpose:** Used to summarize, group, and analyze large volumes of data in Hive tables, typically in combination with the `GROUP BY` clause.
+* **Common Functions:** Includes standard SQL-like operations such as `SUM()`, `AVG()`, `COUNT()`, `MIN()`, and `MAX()`.
+* **Advanced Functions:** Supports complex analytics, including collection accumulators like `collect_list()` and `collect_set()`, as well as approximate calculations like `percentile_approx()`.
+* **Distributed Processing:** Executed in parallel across the Hadoop cluster using MapReduce or Tez jobs.
+
+**Example:**
+To find the total sales and average price per product category:
+```hiveql
+SELECT category, SUM(sales), AVG(price) 
+FROM transactions 
+GROUP BY category;
+```",correct,"It accurately covers all points of the reference answer, including multi-row operation, single value return, common functions, and a correct example using GROUP BY.",gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:06:20,,
+23,IV,What are conditional functions in Hive?,"1. Conditional functions return values based on a condition. 2. Hive supports IF() for simple conditions. 3. CASE-WHEN-THEN-ELSE is useful for handling multiple conditions. Example: IF(salary > 50000, 'High', 'Low')","I couldn't find this in your notes. Try rephrasing, or upload the material that covers it.",,wrong,Abstained: answer not found in the notes.,"Conditional functions in Hive are built-in functions used to evaluate conditions and return different values based on whether those conditions are true or false, similar to `IF-ELSE` statements in traditional programming.
+
+* **`IF(condition, true_value, false_value)`**: Evaluates the condition and returns `true_value` if true, otherwise `false_value`.
+* **`CASE WHEN ... THEN ... ELSE ... END`**: A versatile branching statement that allows for multiple conditions and outcomes.
+* **`COALESCE(value1, value2, ...)`**: Evaluates the arguments in order and returns the first non-null value encountered.
+* **`NVL(value, default_value)`**: Returns `default_value` if `value` is `NULL`, otherwise returns `value`.
+
+**Example:**
+Using a `CASE` statement to categorize user ages in a Hive table:
+```sql
+SELECT name, 
+       CASE 
+           WHEN age < 18 THEN 'Minor'
+           WHEN age BETWEEN 18 and 65 THEN 'Adult'
+           ELSE 'Senior' 
+       END AS age_category
+FROM users;
+```",correct,"The answer accurately explains conditional functions in Hive, covers IF and CASE-WHEN-THEN-ELSE with examples, and includes extra correct details.",gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:06:25,,
+24,IV,What is a Managed Table in Hive?,1. Hive manages both the metadata and actual data. 2. Data is generally stored in the Hive warehouse directory. 3. Dropping the table deletes both metadata and data. Example: DROP TABLE employees; removes the managed table and its data.,"Managed tables (internal tables) are the main structures where data is stored in HDFS, in which Hive manages both the data and the metadata [S1][S4].
+
+* Hive manages both data and metadata [S1][S4].
+* Data is stored in a default Hive warehouse directory (usually `/user/hive/warehouse`) [S1].
+* Dropping the table deletes both metadata and actual data [S1][S4].
+
+Example syntax:
+```sql
+CREATE TABLE employees ( 
+    id INT, 
+    name STRING, 
+    salary FLOAT, 
+    dept STRING 
+) 
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' 
+STORED AS TEXTFILE;
+``` [S1]","BIG_DATA_UNIT-4.pdf, p. 12; BIG_DATA_UNIT-4.pdf, p. 5",correct,"It successfully captures all key points from the reference answer including Hive managing data and metadata, warehouse storage, and dropping behavior.","A **Managed Table** (also known as an internal table) in Hive is a table where Hive completely manages both the underlying data and the metadata.
+
+* **Full Lifecycle Control:** Hive manages the data's lifecycle; when you drop a managed table, Hive deletes both the metadata from the metastore and the actual data files from HDFS.
+* **Default Storage Location:** Data is stored by default in a subdirectory within the Hive warehouse directory (e.g., `/user/hive/warehouse/table_name`).
+* **Use Case:** Best used for temporary work, staging data, or when Hive has exclusive ownership of the data workflow.
+
+**Example:**
+```sql
+CREATE TABLE employee (id INT, name STRING);
+-- Dropping this table deletes both the schema and the data in HDFS:
+DROP TABLE employee; 
+```",correct,"It accurately covers metadata/data management, warehouse storage, and data deletion upon dropping, along with a correct example.",gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:06:29,,
+25,IV,Differentiate Managed and External Tables.,"1. Managed table: Hive manages both data and metadata; external table manages metadata mainly. 2. Managed table: Dropping deletes data; external table keeps the data. 3. External tables are useful when data needs to be shared or preserved independently. Example: Dropping employees deletes its data, whereas dropping employee_ext leaves the HDFS data intact.","Managed and external tables differ in how Hive manages their data and what happens when they are dropped [S4].
+
+* **Managed Tables (Internal Tables):** 
+  * Hive manages both the metadata and the actual data [S2].
+  * Data is stored in a default Hive warehouse directory (usually `/user/hive/warehouse`) [S2].
+  * Dropping the table deletes both the metadata and the actual data [S1][S2].
+* **External Tables:** 
+  * Hive manages the metadata only, while the data remains in its original HDFS location [S2].
+  * Dropping the table deletes the metadata only, keeping the data intact [S1][S4].","BIG_DATA_UNIT-4.pdf, p. 15; BIG_DATA_UNIT-4.pdf, p. 12; BIG_DATA_UNIT-4.pdf, p. 16",correct,It correctly explains the differences in data/metadata management and drop behavior as outlined in the reference answer.,"Managed and External Tables in Hadoop (Hive) differ primarily in who controls the underlying data lifecycle and storage location.
+
+* **Managed Tables:** Tables where Hive completely manages both the metadata and the underlying data files.
+* **External Tables:** Tables where Hive manages only the metadata, while the external file system (e.g., HDFS, S3) manages the underlying data files.
+
+**Key Differences:**
+* **Data Lifecycle:** Dropping a Managed Table deletes both the metadata *and* the underlying data files. Dropping an External Table deletes only the metadata; the actual data files remain intact in storage.
+* **Storage Location:** Managed tables are stored in the Hive warehouse directory by default (`/user/hive/warehouse`). External tables can be located anywhere in the distributed file system, specified via the `LOCATION` clause.
+* **Control:** Managed tables are typically used for temporary or internal scratchpad data. External tables are used when data is shared with other tools (like Spark or MapReduce) or needs to persist independently of Hive.
+
+**Example:**
+* *Managed Table:* `CREATE TABLE emp_managed (id INT, name STRING);` (Dropping this table wipes the records and directory).
+* *External Table:* `CREATE EXTERNAL TABLE emp_ext (id INT, name STRING) LOCATION '/data/emp';` (Dropping this table removes the table definition, but `/data/emp` and its files remain safe).",correct,"It accurately covers metadata/data management, drop behavior, and data preservation with a clear example matching the reference.",gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:08:06,,
+26,IV,What is the difference between static and dynamic partitioning?,"1. Static partitioning: partition values are specified manually during insertion. 2. Dynamic partitioning: Hive automatically obtains partition values from the data. 3. Dynamic partitioning requires the appropriate Hive partition settings. Example: Static: PARTITION(year=2025, month=9); Dynamic: PARTITION(year, month).","Static and dynamic partitioning differ in how partition values are assigned during data insertion.
+* Static Partitioning: The user explicitly specifies the partition values during the insert operation [S1].
+* Dynamic Partitioning: Hive automatically assigns partition values based on the data [S1].
+
+Example of Static Partitioning:
+`INSERT INTO TABLE sales PARTITION(year=2025, month=9) SELECT id, amount FROM temp_sales;` [S1]
+
+Example of Dynamic Partitioning:
+`SET hive.exec.dynamic.partition=true; SET hive.exec.dynamic.partition.mode=nonstrict; INSERT INTO TABLE sales PARTITION(year, month) SELECT id, amount, year, month FROM temp_sales;` [S1]","BIG_DATA_UNIT-4.pdf, p. 13",correct,"It accurately explains both static and dynamic partitioning in the context of Hive as outlined in the reference answer, including proper definitions and examples.","Static partitioning divides data or cluster resources into fixed sizes before execution, whereas dynamic partitioning allocates or adjusts them on-the-fly based on runtime conditions.
+
+* **Static Partitioning:**
+  * **Timing:** Done at compile-time or prior to job execution.
+  * **Flexibility:** Fixed number and size of partitions; cannot adapt to varying data distributions.
+  * **Risk:** Prone to data skew, leading to resource underutilization or bottlenecks (e.g., some reducers finish early while others overload).
+
+* **Dynamic Partitioning:**
+  * **Timing:** Done at runtime, adjusting based on the actual workload or data characteristics.
+  * **Flexibility:** Automatically creates partitions as needed (e.g., Hive dynamic partition insertion based on column values).
+  * **Efficiency:** Better resource utilization and load balancing, though it incurs some runtime overhead for management.
+
+* **Example:** In Apache Hive, writing data with `INSERT OVERWRITE TABLE t PARTITION (country)` using **static partitioning** requires you to explicitly specify the country (e.g., `PARTITION (country='USA')`), whereas **dynamic partitioning** (`SET hive.exec.dynamic.partition=true`) automatically detects and creates partitions for all unique countries found in the dataset during execution.",correct,"It provides a comprehensive explanation of static versus dynamic partitioning, correctly capturing the core concepts and including a relevant Hive example.",gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:08:11,,
+27,IV,What are Hive storage formats?,"1. TextFile is the default simple text format. 2. ORC and Parquet are columnar formats useful for analytics. 3. SequenceFile, Avro and RCFile provide other storage options. Example: A large analytical dataset can be stored in ORC for fast reading and compression.","Hive storage formats are the different formats supported by Hive for storing table data [S2].
+- TextFile: Default, simple text format [S1][S2].
+- SequenceFile: Binary key-value format [S1][S2].
+- ORC (Optimized Row Columnar): Columnar format that offers fast reads and supports compression [S1][S2].
+- Parquet: Columnar storage used for analytics [S1][S2].
+- Avro: Row-based format that supports schema evolution [S1][S2].
+- RCFile: Hybrid row-columnar format [S2].
+
+Example syntax:
+`CREATE TABLE employees ( id INT, name STRING, salary FLOAT, dept STRING ) ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' STORED AS TEXTFILE;` [S4]","BIG_DATA_UNIT-4.pdf, p. 3; BIG_DATA_UNIT-4.pdf, p. 14; BIG_DATA_UNIT-4.pdf, p. 2",correct,It accurately lists the primary storage formats and provides a correct example statement matching the reference criteria.,"Hive storage formats define how data is physically structured, encoded, and stored in the underlying distributed file system (like HDFS).
+
+* **Row vs. Columnar:** Formats organize data either row-by-row (good for transactional inserts) or column-by-column (optimized for analytical queries and compression).
+* **Compression Support:** Most formats support built-in compression (e.g., Gzip, Snappy) to reduce storage space and I/O overhead.
+* **Splitability:** Advanced formats allow files to be split into independent chunks, enabling parallel processing by multiple MapReduce or Tez tasks.
+* **Metadata & Evolution:** Formats like ORC and Parquet store embedded metadata (statistics, schema), supporting schema evolution and predicate pushdown.
+* **Common Examples:** TextFile (default, uncompressed text), SequenceFile (binary key-value pairs), ORC (Optimized Row Columnar), and Parquet.
+
+**Example:** 
+Using `STORED AS PARQUET` when creating a table instructs Hive to write data in Apache Parquet format, which compresses columns individually and allows queries to read only the specific columns needed, drastically speeding up analytics.",correct,"It thoroughly explains Hive storage formats, lists the key examples from the reference, and provides a valid analytical example.",gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:08:16,,
+28,IV,What is a Hive View?,"1. A view is a logical representation of a query. 2. It does not represent a separate physical copy of the query result. 3. Views allow users to reuse complex queries more easily. Example: CREATE VIEW high_salary AS SELECT name, salary FROM employees WHERE salary > 50000;","A Hive view is a logical representation or logical table based on a query [S3][S5].
+
+* Acts as a logical representation of queries [S3].
+* Logical tables based on queries [S5].
+
+Example:
+`CREATE VIEW high_salary AS SELECT name, salary FROM employees WHERE salary > 50000;` [S3]","BIG_DATA_UNIT-4.pdf, p. 16; BIG_DATA_UNIT-4.pdf, p. 17",correct,It accurately identifies that a Hive view is a logical representation of a query without physical storage and includes the correct example from the reference answer.,"A Hive View is a virtual table stored in the Hive catalog whose contents are computed dynamically by executing a saved SQL query.
+
+* **Virtual Nature:** It does not store physical data on disk (unlike a materialized view or standard table); it only stores the query definition.
+* **Security & Abstraction:** Used to restrict user access to specific rows or columns of underlying tables and to simplify complex queries.
+* **Modularity:** Can be queried just like a regular Hive table in subsequent queries and joins.
+
+*Example:*
+```sql
+CREATE VIEW high_value_users AS 
+SELECT user_id, total_spent 
+FROM transactions 
+WHERE total_spent > 1000;
+```",correct,"It correctly explains the virtual and logical nature of Hive views as saved queries without physical data, and provides comprehensive valid details along with an accurate example.",gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:08:21,,
+29,IV,What is a Subquery in Hive?,"1. A subquery is a query nested inside another query. 2. Hive supports subqueries in SELECT, FROM and WHERE clauses. 3. They are useful when the result of one query is required by another query. Example: SELECT name, salary FROM employees WHERE salary > (SELECT AVG(salary) FROM employees);","I couldn't find this in your notes. Try rephrasing, or upload the material that covers it.",,wrong,Abstained: answer not found in the notes.,"A subquery in Hive is a query embedded within another SQL statement, used to pass intermediate results to the main query.
+
+* **Execution:** Executed from the inside out; the inner query runs first and its result set is used by the outer query.
+* **Placement:** Can be used in `SELECT`, `FROM`, `WHERE`, and `HAVING` clauses.
+* **Hive Limitations:** Historically, Hive had limited support for subqueries, but modern versions support correlated subqueries, `IN`, `NOT IN`, `EXISTS`, and `NOT EXISTS` in `WHERE` clauses, as well as subqueries in the `FROM` clause (derived tables).
+
+**Example:**
+```hiveql
+SELECT employee_id, salary 
+FROM employees 
+WHERE salary > (SELECT AVG(salary) FROM employees);
+```",correct,"It accurately defines a subquery, mentions placement in clauses, explains its purpose, and provides a correct example matching the reference.",gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:08:25,,
+30,IV,What are Sqoop Connectors?,"1. Connectors allow Sqoop to communicate with different data sources and destinations. 2. Common connectors include JDBC, HDFS, Hive and HBase. 3. Custom connectors can also be developed for specific databases or sources. Example: A JDBC connector can connect Sqoop to MySQL, Oracle or PostgreSQL.","Sqoop connectors are mechanisms Sqoop uses to communicate with different data sources [S1].
+
+* Types of connectors include:
+  * **JDBC Connector:** Connects to any relational database that supports JDBC (such as MySQL, Oracle, and PostgreSQL) [S1].
+  * **HDFS Connector:** Imports and exports data to and from HDFS [S1].
+  * **Hive Connector:** Imports data directly into Hive tables [S1].
+  * **HBase Connector:** Imports data into HBase tables [S1].
+  * **Custom Connectors:** Developed for specific databases or sources [S1].
+* **Example / Syntax:** Connecting to MySQL via JDBC [S1]:
+  ```bash
+  sqoop list-databases \
+  --connect jdbc:mysql://localhost:3306/ \
+  --username root --password password
+  ```","BIG_DATA_UNIT-4.pdf, p. 18",correct,"It accurately covers the core communication purpose, lists all common connectors, mentions custom connectors, and provides a valid JDBC example matching the reference.","Apache Sqoop Connectors are modular components that enable Sqoop to read data from and write data to various external relational databases and enterprise data stores.
+
+* **Purpose:** Act as an abstraction layer between Sqoop and specific database management systems (DBMS), handling database-specific SQL dialects and APIs.
+* **Types:** 
+  * *Default (Generic) Connectors:* Use standard JDBC drivers to connect to almost any relational database, though performance may be basic.
+  * *Optimized (Fast Path) Connectors:* Vendor-specific connectors (e.g., for Oracle, MySQL, PostgreSQL) that utilize native database utilities (like bulk loading tools) for significantly faster data transfer.
+* **Extensibility:** Sqoop provides a plugin architecture, allowing developers to write custom connectors for proprietary data stores.
+
+* **Example:** Using the `--connect jdbc:mysql://localhost/mydb` flag invokes the generic JDBC connector, whereas using specialized tools often leverages an optimized MySQL-specific connector for bulk data movement.",correct,"It successfully captures the definition, purpose, types including custom connectors, and provides a relevant example, while adding accurate extra details.",gemini / gemini-3.5-flash-lite,gemini / gemini-3.5-flash-lite,2026-10-08T05:08:29,,
