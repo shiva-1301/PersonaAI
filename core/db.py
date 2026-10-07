@@ -261,3 +261,28 @@ def update_document(document_id: int, subject: str | None, page_count: int, db_p
             " uploaded_at = datetime('now') WHERE id = ?",
             (subject, page_count, document_id),
         )
+
+
+# --- Study plans ---
+
+def save_study_plan(
+    user_id: int, exam_date: str, hours_per_day: float, plan_json: str, db_path=None
+) -> int:
+    with connect(db_path) as conn:
+        return conn.execute(
+            "INSERT INTO study_plans (user_id, exam_date, hours_per_day, plan_json)"
+            " VALUES (?, ?, ?, ?)",
+            (user_id, exam_date, hours_per_day, plan_json),
+        ).lastrowid
+
+
+def latest_study_plan(user_id: int, db_path=None) -> sqlite3.Row | None:
+    with connect(db_path) as conn:
+        return conn.execute(
+            "SELECT * FROM study_plans WHERE user_id = ? ORDER BY id DESC LIMIT 1", (user_id,)
+        ).fetchone()
+
+
+def update_study_plan(plan_id: int, plan_json: str, db_path=None) -> None:
+    with connect(db_path) as conn:
+        conn.execute("UPDATE study_plans SET plan_json = ? WHERE id = ?", (plan_json, plan_id))

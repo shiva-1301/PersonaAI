@@ -113,10 +113,11 @@ PersonaAI/
 
 ## Phase 4: Study Plan (Day 8)
 
-- [ ] Inputs: exam date, hours per day, documents/subjects to cover
-- [ ] Plan generator: covers all topics, gives weak topics extra time, and schedules revision + mock-quiz days before the exam
-- [ ] Display as a day-by-day table; mark days complete
-- [ ] "Regenerate" updates the plan using the latest topic scores
+- [x] Inputs: exam date, hours per day, documents to cover
+- [x] Plan generator (rule-based, no LLM, so its guarantees always hold and it uses no API quota): splits study time by weight (weak 3×, untested/learning 2×, strong 1×, minimum 30 min per topic), so every topic is covered and weak topics get extra time
+- [x] Each topic: a study session, then a review + 5-question quiz at least 2 days later (spaced practice); final days are a mock exam and a weak-topic revision day
+- [x] Display as a day-by-day table with today's tasks on top; mark days complete (saved)
+- [x] "Regenerate" rebuilds from today with the latest topic scores and shows which topics' time changed
 
 **Done when:** a plan for an exam 14 days away covers every topic, weights weak ones, and changes after you improve on a topic.
 

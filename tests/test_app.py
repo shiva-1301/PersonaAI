@@ -142,3 +142,27 @@ def test_quiz_page_adaptive_targets_weak_topics(tmp_path, monkeypatch):
     assert not at.exception
     # 10 questions: 6 on the weak topic, the rest untested first
     assert seen[ids["Hive tables"]] == 6 and seen[ids["Pig macros"]] >= 2
+
+
+def test_study_plan_page_create_and_regenerate(tmp_path, monkeypatch):
+    uid, ids = _user_with_history(tmp_path, monkeypatch)
+    from core import planner
+    at = AppTest.from_file("../pages/4_Study_Plan.py")
+    at.session_state.user_id = uid
+    at.session_state.username = "Vivek"
+    at.run()
+    assert not at.exception
+    at.number_input[0].set_value(2.0)
+    at.button[0].click().run()  # "Create plan" (form submit)
+    assert not at.exception
+    plan_id, plan = planner.latest(uid)
+    assert len(plan.days) == 14 and set(plan.topic_hours) == set(ids.values())
+    # Weak "Hive tables" (25%) gets the most time
+    assert max(plan.topic_hours, key=plan.topic_hours.get) == ids["Hive tables"]
+    assert [h.value for h in at.subheader] == ["Today", "Day by day"]
+    # (The "Done" checkboxes live in st.data_editor, which AppTest can't drive;
+    # saving them is covered by test_planner.test_marking_days_done_is_saved.)
+
+    next(b for b in at.button if b.label.startswith("🔄 Regenerate")).click().run()
+    assert not at.exception
+    assert "Plan regenerated" in at.success[0].value  # no new quizzes -> unchanged
