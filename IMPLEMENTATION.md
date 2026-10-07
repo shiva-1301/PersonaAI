@@ -84,12 +84,14 @@ PersonaAI/
 
 ## Phase 2: Quiz Generation (Days 4–5)
 
-- [ ] Choose a document/topic and number of questions (5/10/15)
-- [ ] LLM generates MCQs as structured JSON (question, 4 options, answer, explanation, topic)
-- [ ] Validate the JSON; regenerate if it's malformed
-- [ ] Quiz UI: answer all questions, then submit
-- [ ] Show score, correct answers, and explanations
-- [ ] Save every answer to `quiz_answers` with its topic
+- [x] Choose documents/topics and number of questions (5/10/15)
+- [x] LLM generates MCQs as structured JSON (question, 4 options, answer, explanation, topic, source page), from the best-matching excerpts for each topic; questions are allocated per topic (Phase 3's adaptive mode reuses this)
+- [x] Validate the JSON (4 distinct options, valid answer letter, known topic, no "all of the above"); re-request only the missing questions, up to 3 calls
+- [x] Shuffle options so the correct answer isn't biased towards A/B
+- [x] Local-model quizzes get an answer-key check: the model answers its own questions blind, and mismatches are dropped *(added: llama3.1:8b produced wrong keys in 2 of 5 questions; Gemini's 15 were all correct, so Gemini skips this extra call)*
+- [x] Quiz UI: answer all questions, then submit
+- [x] Show score, correct answers, explanations, and source pages
+- [x] Save every answer to `quiz_answers` with its topic
 
 **Done when:** you generate a 10-question quiz from your notes, the questions match the material, and your results are saved.
 

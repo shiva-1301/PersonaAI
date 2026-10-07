@@ -19,6 +19,7 @@ log = logging.getLogger(__name__)
 
 # Seconds to wait for one Gemini request (Ollama gets 3x: local models are slower on CPU).
 REQUEST_TIMEOUT_S = 60
+OLLAMA_NUM_CTX = 8192
 
 
 class LLMError(RuntimeError):
@@ -70,7 +71,9 @@ def _ollama_generate(
         model=model,
         messages=messages,
         format="json" if json_mode else "",
-        options={"temperature": temperature},
+        # Ollama's default context (2-4k tokens) silently truncates long prompts like
+        # quiz generation with many excerpts.
+        options={"temperature": temperature, "num_ctx": OLLAMA_NUM_CTX},
     )
     return response["message"]["content"]
 

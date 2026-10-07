@@ -165,3 +165,40 @@ def list_topics(user_id: int, document_id: int | None = None, db_path=None) -> l
             "SELECT * FROM topics WHERE user_id = ? AND document_id = ? ORDER BY id",
             (user_id, document_id),
         ).fetchall()
+
+
+# --- Quizzes ---
+
+def save_quiz_attempt(
+    user_id: int, score: int, total: int, answers: list[tuple], db_path=None
+) -> int:
+    """Save an attempt and its answers in one transaction.
+    answers: (topic_id, question, chosen, correct, is_correct) per question."""
+    with connect(db_path) as conn:
+        attempt_id = conn.execute(
+            "INSERT INTO quiz_attempts (user_id, score, total) VALUES (?, ?, ?)",
+            (user_id, score, total),
+        ).lastrowid
+        conn.executemany(
+            "INSERT INTO quiz_answers (attempt_id, topic_id, question, chosen, correct, is_correct)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            [(attempt_id, t, q, ch, co, int(ok)) for t, q, ch, co, ok in answers],
+        )
+        return attempt_id
+
+
+def list_quiz_attempts(user_id: int, db_path=None) -> list[sqlite3.Row]:
+    with connect(db_path) as conn:
+        return conn.execute(
+            "SELECT * FROM quiz_attempts WHERE user_id = ? ORDER BY created_at DESC, id DESC",
+            (user_id,),
+        ).fetchall()
+
+
+def list_quiz_answers(attempt_id: int, db_path=None) -> list[sqlite3.Row]:
+    with connect(db_path) as conn:
+        return conn.execute(
+            "SELECT a.*, t.name AS topic FROM quiz_answers a"
+            " LEFT JOIN topics t ON t.id = a.topic_id WHERE a.attempt_id = ? ORDER BY a.id",
+            (attempt_id,),
+        ).fetchall()

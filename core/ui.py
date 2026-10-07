@@ -2,7 +2,7 @@
 
 import streamlit as st
 
-from core import db, llm
+from core import db, llm, rag
 
 
 def require_login() -> int:
@@ -23,3 +23,14 @@ def sidebar() -> None:
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
             st.rerun()
+
+
+@st.cache_resource(show_spinner="Loading the search models (first time only, ~30s)...")
+def _load_models() -> bool:
+    rag.warm_up()
+    return True
+
+
+def load_models() -> None:
+    """Load the embedding + reranking models once per server process."""
+    _load_models()

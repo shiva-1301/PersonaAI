@@ -139,8 +139,8 @@ Run the tests with `pytest`.
 | Milestone | Status |
 |---|---|
 | Project setup | ✅ |
-| Feature 1: Notes Q&A | ⬜ |
-| Feature 2: Quiz generation | ⬜ |
+| Feature 1: Notes Q&A | ✅ (awaiting your test) |
+| Feature 2: Quiz generation | ✅ (awaiting your test) |
 | Feature 3: Weak-topic memory | ⬜ |
 | Feature 4: Study plan | ⬜ |
 | Evaluation | ⬜ |

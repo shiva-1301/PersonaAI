@@ -4,7 +4,7 @@ import streamlit as st
 
 from core import db, ingest, llm, rag
 from core.documents import SUPPORTED_TYPES, DocumentError
-from core.ui import require_login
+from core.ui import load_models, require_login
 
 st.set_page_config(page_title="Notes Q&A · PersonaAI", page_icon="📚", layout="wide")
 user_id = require_login()
@@ -14,14 +14,7 @@ st.caption("Answers come only from your uploaded notes, with the file and page t
 
 st.session_state.setdefault("qa_history", [])
 
-
-@st.cache_resource(show_spinner="Loading the search models (first time only, ~30s)...")
-def _load_models() -> bool:
-    rag.warm_up()
-    return True
-
-
-_load_models()
+load_models()
 
 documents = db.list_documents(user_id)
 ask_tab, docs_tab = st.tabs(["💬 Ask", f"📄 My documents ({len(documents)})"])
