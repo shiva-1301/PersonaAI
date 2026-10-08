@@ -10,12 +10,17 @@ Build plan for PersonaAI. See [README.md](README.md) for features and deliverabl
 
 ```
 PersonaAI/
-├── app.py                  # Streamlit entry point (login + navigation)
-├── pages/
-│   ├── 1_Notes_QA.py       # Upload documents + ask questions
-│   ├── 2_Quiz.py           # Generate and take quizzes
-│   ├── 3_Progress.py       # Weak-topic dashboard
-│   └── 4_Study_Plan.py     # Exam study plan
+├── app.py                  # Entry point: sign-in card + page router (st.navigation)
+├── views/
+│   ├── home.py             # Dashboard: hero, stats, today's plan, weak topics
+│   ├── notes_qa.py         # Upload documents + ask questions
+│   ├── quiz.py             # Generate and take quizzes (one question at a time)
+│   ├── progress.py         # Weak-topic dashboard (Plotly charts)
+│   └── study_plan.py       # Exam study plan timeline
+├── ui/
+│   ├── styles.py           # Palette, CSS, HTML helpers (hero, stat tiles, badges, chips)
+│   └── shell.py            # Sidebar navigation + profile card, login guard
+├── .streamlit/config.toml  # Theme: colours, fonts (Inter/Poppins), radius
 ├── core/
 │   ├── config.py           # Loads settings from .env
 │   ├── llm.py              # One interface for Gemini / Ollama

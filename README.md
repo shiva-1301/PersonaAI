@@ -52,7 +52,8 @@ A web app that grounds every answer in the student's own material (Retrieval-Aug
 | Component | Choice |
 |---|---|
 | Language | Python 3.12 |
-| Web UI | Streamlit |
+| Web UI | Streamlit (custom theme in `.streamlit/config.toml`, shared styles in `ui/`) |
+| Charts | Plotly |
 | LLM | Google Gemini API (online) / Ollama (offline fallback) |
 | Embeddings | sentence-transformers `all-MiniLM-L6-v2` (runs locally) |
 | Reranking | cross-encoder `ms-marco-MiniLM-L-6-v2` (runs locally) |

@@ -1,0 +1,31 @@
+# PersonaAI look & feel. Colours are shared with ui/styles.py (PALETTE) and the charts.
+
+[client]
+toolbarMode = "minimal"        # no Deploy button / developer menu
+showSidebarNavigation = false  # the sidebar nav is built in ui/shell.py
+
+[theme]
+base = "light"
+primaryColor = "#2A78D6"
+backgroundColor = "#F5F7FB"
+secondaryBackgroundColor = "#EEF2F8"
+textColor = "#1B2559"
+borderColor = "#E6EAF2"
+linkColor = "#2A78D6"
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap, sans-serif"
+headingFont = "Poppins:https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap, sans-serif"
+headingFontWeights = [700, 600, 600, 600, 600, 600]
+baseRadius = "12px"
+buttonRadius = "10px"
+showWidgetBorder = true
+blueColor = "#2A78D6"
+greenColor = "#0CA30C"
+orangeColor = "#EB6834"
+redColor = "#D03B3B"
+violetColor = "#4A3AA7"
+yellowColor = "#EDA100"
+chartCategoricalColors = ["#2A78D6", "#EB6834", "#1BAF7A", "#EDA100", "#E87BA4", "#008300", "#4A3AA7", "#E34948"]
+
+[theme.sidebar]
+backgroundColor = "#FFFFFF"
+borderColor = "#E6EAF2"
