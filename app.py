@@ -24,7 +24,7 @@ def login_page() -> None:
                  '<div class="pa-login-title">PersonaAI</div>'
                  "<div class=\"pa-login-tag\">The study assistant that learns what you don't know yet.</div>")
             with st.form("login", border=False):
-                username = st.text_input("Username", max_chars=40, placeholder="e.g. vivek")
+                username = st.text_input("Username", max_chars=40)
                 submitted = st.form_submit_button("Continue", type="primary", use_container_width=True)
             if submitted:
                 if not username.strip():
