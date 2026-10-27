@@ -72,10 +72,17 @@ def _object(**props) -> dict:
 
 # The fixed JSON structures above, as schemas Claude's API enforces.
 _STR = {"type": "string"}
-QUIZ_SCHEMA = _object(questions={"type": "array", "items": _object(
-    topic=_STR, question=_STR, options={"type": "array", "items": _STR},
-    answer={"type": "string", "enum": list(LETTERS)}, explanation=_STR, source=_STR,
-)})
+
+
+def quiz_schema(topic_tags: list[str], n_excerpts: int) -> dict:
+    """The quiz JSON, with "topic" limited to this quiz's tags (T1...) and "source" to its
+    excerpt tags (S1...). Without the limit Claude sometimes wrote topic names instead
+    of tags, and every question was then rejected."""
+    return _object(questions={"type": "array", "items": _object(
+        topic={"type": "string", "enum": topic_tags}, question=_STR,
+        options={"type": "array", "items": _STR}, answer={"type": "string", "enum": list(LETTERS)},
+        explanation=_STR, source={"type": "string", "enum": [f"S{i}" for i in range(1, n_excerpts + 1)]},
+    )})
 VERIFY_SCHEMA = _object(answers={"type": "array", "items": _object(
     n={"type": "integer"}, answer={"type": "string", "enum": list(LETTERS) + ["X"]},
 )})
@@ -142,7 +149,8 @@ def generate(user_id: int, allocation: dict[int, int]) -> list[Question]:
         prompt = build_prompt(hits, topics, needed, avoid=[q.question for q in questions])
         try:
             reply, model = llm.generate_with_model(
-                prompt, system=SYSTEM_PROMPT, json_mode=True, temperature=0.7, schema=QUIZ_SCHEMA
+                prompt, system=SYSTEM_PROMPT, json_mode=True, temperature=0.7,
+                schema=quiz_schema(list(_topic_tags(needed)), len(hits)),
             )
             new = parse_questions(reply, topics, hits, needed)
             if new and model.split(" / ")[0] in VERIFY_PROVIDERS:
@@ -267,7 +275,10 @@ def _validate(item, tags: dict[str, int], topics: dict, hits) -> Question | None
     if answer is None:
         return None
 
-    tid = tags.get(str(item.get("topic", "")).strip().upper())
+    topic = str(item.get("topic", "")).strip()
+    tid = tags.get(topic.upper())
+    if tid is None:  # some models answer with the topic's name instead of its tag
+        tid = next((t for t in tags.values() if topics[t]["name"].lower() == topic.lower()), None)
     if tid is None:
         return None
 

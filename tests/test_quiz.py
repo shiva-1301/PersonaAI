@@ -169,3 +169,18 @@ def test_gemini_quiz_is_not_verified(env, monkeypatch):
 def test_unreadable_verification_keeps_nothing(monkeypatch):
     monkeypatch.setattr(llm, "generate", lambda *a, **k: "nonsense")
     assert quiz.verify(parse([q()]), HITS) == []
+
+
+def test_topic_name_instead_of_tag_is_accepted():
+    # Claude sometimes answered with the topic's name, which used to reject every question.
+    [question] = parse([q(topic="pig MACROS")])
+    assert question.topic_id == 2
+    assert parse([q(topic="Unknown topic")]) == []
+
+
+def test_quiz_schema_limits_topic_and_source_tags():
+    schema = quiz.quiz_schema(["T1", "T2"], 3)
+    item = schema["properties"]["questions"]["items"]["properties"]
+    assert item["topic"]["enum"] == ["T1", "T2"]
+    assert item["source"]["enum"] == ["S1", "S2", "S3"]
+    assert item["answer"]["enum"] == ["A", "B", "C", "D"]
