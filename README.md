@@ -139,6 +139,10 @@ streamlit run app.py
 | `OLLAMA_MODEL`, `OLLAMA_HOST` | Offline fallback (local Ollama) |
 | `LLM_PROVIDER` | Which provider to try first: `claude` (default), `gemini` or `ollama` |
 | `ADMIN_PASSWORD` | Password of the `admin` account; leave empty to turn admin sign-in off |
+| `OCR_ENABLED` | Read pages that are only images (scanned PDFs, picture slides) with Claude on upload (default `true`) |
+
+Notes can be PDF, Word (.docx), PowerPoint (.pptx; old .ppt needs LibreOffice) or text.
+Slides are cited as "file.pptx, slide N".
 
 If a model fails, the next is tried: Claude → Gemini → lighter Gemini → Ollama. Each gets a
 short timeout and at most one retry, and every failure is logged with its status code in
@@ -158,7 +162,15 @@ short timeout and at most one retry, and every failure is logged with its status
 5. On **Study Plan**, a student enters their exam timetable; the plan splits each day between
    subjects by weakness and how close each exam is.
 
-Run the tests with `pytest`. The screen test (`tests/e2e_screens.py`, needs `playwright`) drives a running app in headless Chromium; see its docstring.
+### Demo cohort
+
+`python scripts/setup_demo_ai_cohort.py` (with the app stopped) copies `notes/` into
+`notes_organized/` with clean "Subject - Unit N" names, backs up the database, creates the
+**AI · Year 3** cohort with 5 demo students, and uploads every file as shared course notes.
+The students' one-time sign-up codes are written to `demo_accounts/` (not in git).
+
+Run the tests with `pytest`. The screen tests (`tests/e2e_screens.py`, `tests/e2e_demo_ai.py`,
+need `playwright`) drive a running app in headless Chromium; see their docstrings.
 
 ---
 
