@@ -1,5 +1,6 @@
 """Question -> retrieve -> answer with citations."""
 
+import json
 import re
 from dataclasses import dataclass, field
 
@@ -30,7 +31,9 @@ Rules:
 - Use only facts stated in the excerpts. Do not add outside knowledge.
 - Cite the excerpts you used inline with their tags, like [S1] or [S2][S4], right after the
   sentence they support. Only use these [S#] tags for citations, never the notes' own numbering.
-- If the excerpts do not contain the answer, reply with exactly {NOT_FOUND} and nothing else.
+- If the excerpts answer only part of the question, answer that part and then say plainly
+  which part the notes don't cover. Do not fill the gap from outside knowledge.
+- If the excerpts answer none of it, reply with exactly {NOT_FOUND} and nothing else.
 - Write the way a good exam answer reads: a one-line definition or direct answer first,
   then key points as bullets. Include a short example or syntax if the excerpts give one.
 - Keep it concise."""
@@ -59,8 +62,7 @@ class Answer:
 def build_prompt(question: str, hits: list[vectorstore.Hit]) -> str:
     blocks = []
     for i, hit in enumerate(hits, 1):
-        where = f"{hit.filename}, page {hit.page}" if hit.page else hit.filename
-        blocks.append(f"[S{i}] ({where})\n{hit.text}")
+        blocks.append(f"[S{i}] ({documents.location(hit.filename, hit.page)})\n{hit.text}")
     return "Excerpts from the student's notes:\n\n" + "\n\n".join(blocks) + f"\n\nQuestion: {question}"
 
 
@@ -108,6 +110,58 @@ def retrieve(
     return [h for h in ranked if h.score >= MIN_SCORE][:k]
 
 
+SPLIT_PROMPT = """A student asked: "{question}"
+
+If this asks about more than one thing (e.g. two concepts, or two questions joined by "and"),
+split it into standalone questions, each repeating the shared context (e.g. "in a CNN").
+If it asks one thing, return it unchanged as the only item. At most {n} questions.
+
+Return JSON: {{"questions": ["...", "..."]}}"""
+SPLIT_SCHEMA = {
+    "type": "object",
+    "properties": {"questions": {"type": "array", "items": {"type": "string"}}},
+    "required": ["questions"],
+    "additionalProperties": False,
+}
+MAX_PARTS = 3
+MAX_EXCERPTS_MULTI = 8  # excerpts for a multi-part question (TOP_K for a single one)
+# Only these questions are sent to the splitter; the rest skip the extra LLM call.
+_MAYBE_MULTI = re.compile(r"\band\b|;|\?.*\?", re.IGNORECASE)
+
+
+def sub_questions(question: str) -> list[str]:
+    """The separate questions inside a multi-part question ("What does YARN's Resource
+    Manager do, and what does a pooling layer do?"); [question] if it asks one thing.
+    Searching once for the whole question lets one part take every excerpt slot."""
+    if not _MAYBE_MULTI.search(question):
+        return [question]
+    try:
+        reply = llm.generate(SPLIT_PROMPT.format(question=question, n=MAX_PARTS), json_mode=True,
+                             schema=SPLIT_SCHEMA, temperature=0)
+        parts = [p.strip() for p in json.loads(reply)["questions"] if isinstance(p, str) and p.strip()]
+    except (llm.LLMError, ValueError, KeyError, TypeError):
+        return [question]
+    return parts[:MAX_PARTS] if len(parts) > 1 else [question]
+
+
+def retrieve_for_answer(
+    user_id: int, question: str, document_ids: list[int] | None = None
+) -> list[vectorstore.Hit]:
+    """retrieve(), but a multi-part question gets the best excerpts for each part, taken in
+    turn (part 1's best, part 2's best, ...) so every part is represented."""
+    parts = sub_questions(question)
+    if len(parts) == 1:
+        return retrieve(user_id, question, document_ids)
+    ranked = [retrieve(user_id, part, document_ids) for part in parts]
+    merged, seen = [], set()
+    for i in range(TOP_K):
+        for hits in ranked:
+            if i < len(hits) and (hits[i].document_id, hits[i].text[:80]) not in seen:
+                seen.add((hits[i].document_id, hits[i].text[:80]))
+                merged.append(hits[i])
+    return merged[:MAX_EXCERPTS_MULTI]
+
+
 def warm_up() -> None:
     """Load the embedding and reranking models (~30s the first time)."""
     vectorstore.embed(["warm up"])
@@ -118,7 +172,7 @@ def answer(user_id: int, question: str, document_ids: list[int] | None = None) -
     question = question.strip()
     if not question:
         raise ValueError("Question is empty.")
-    hits = retrieve(user_id, question, document_ids)
+    hits = retrieve_for_answer(user_id, question, document_ids)
     if not hits:
         return Answer(NOT_FOUND_MESSAGE, found=False)
     reply, model = llm.generate_with_model(build_prompt(question, hits), system=SYSTEM_PROMPT)
