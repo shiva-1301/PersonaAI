@@ -99,6 +99,7 @@ def test_quiz_page_one_question_at_a_time(tmp_path, monkeypatch):
         click(at, "Next")
     click(at, "Submit answers")
     assert "Answer every question first. Missing: 2, 3, 4, 5" in at.warning[0].value
+    assert "Question 2 of 5" in text(at)  # taken to the first unanswered question
 
     # Answer the rest (one wrong) via the question navigator.
     for i in range(1, 5):

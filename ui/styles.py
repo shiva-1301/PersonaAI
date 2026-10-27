@@ -118,8 +118,9 @@ h1, h2, h3, h4 {{ color: {PALETTE["text"]}; letter-spacing: -0.01em; }}
 .pa-chip b {{ font-weight: 700; }}
 
 .pa-empty {{ color: {PALETTE["muted"]}; font-size: .88rem !important; margin: .1rem 0 .5rem 0; }}
-.pa-row {{ display: flex; justify-content: space-between; align-items: center; gap: .8rem;
-    padding: .5rem 0; border-bottom: 1px solid #EEF1F6; font-size: .92rem !important; }}
+.pa-row {{ display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+    gap: .3rem .8rem; padding: .5rem 0; border-bottom: 1px solid #EEF1F6; font-size: .92rem !important; }}
+.pa-row > span:first-child {{ min-width: 0; overflow-wrap: anywhere; }}
 .pa-row:last-child {{ border-bottom: none; }}
 
 /* ---- Document list (Notes Q&A) ---- */
@@ -193,6 +194,14 @@ h1, h2, h3, h4 {{ color: {PALETTE["text"]}; letter-spacing: -0.01em; }}
     border-color: {PALETTE["primary"]}; background: {TONES["blue"][1]};
 }}
 .st-key-question [data-testid="stRadioOption"] p {{ font-size: .95rem !important; }}
+/* Keyboard users need to see which option / link has focus */
+.st-key-question [data-testid="stRadioOption"]:has(input:focus-visible),
+[data-testid="stSidebar"] [data-testid="stPageLink"] a:focus-visible {{
+    outline: 2px solid {PALETTE["primary"]}; outline-offset: 2px;
+}}
+@media (prefers-reduced-motion: reduce) {{
+    .st-key-question [data-testid="stRadioOption"] {{ transition: none; }}
+}}
 
 /* ---- Quiz text ---- */
 .pa-question {{ font-family: Poppins, sans-serif; font-weight: 600; font-size: 1.15rem !important;

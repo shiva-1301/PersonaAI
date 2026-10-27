@@ -1,6 +1,6 @@
 """Home dashboard: welcome banner, headline numbers, today's plan, topics to revise."""
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from html import escape
 
 import streamlit as st
@@ -59,7 +59,7 @@ stat_row([
     Stat("Average score", f"{correct / answered:.0%}" if answered else "–", "🎯", "aqua",
          "across all quizzes"),
     Stat("Weak topics", str(len(weak)), "⚠️", "orange",
-         f"{len(strong)} strong" if strong else "need 3+ answers each"),
+         f"{len(strong)} strong" if strong else f"need {memory.MIN_ANSWERS}+ answers each"),
 ])
 
 left, right = st.columns([1.35, 1])
@@ -81,7 +81,8 @@ with left:
         else:
             st.caption("No study plan yet. Tell PersonaAI your exam date and it builds a "
                        "day-by-day plan that gives weak topics extra time.")
-        if st.button("Open study plan", icon=":material/event_note:", key="open_plan"):
+        if st.button("Open study plan" if current else "Create a study plan",
+                     icon=":material/event_note:", key="open_plan"):
             st.switch_page("views/study_plan.py")
 
 # ---- Topics to revise ----
@@ -89,7 +90,7 @@ with right:
     with card("revise"):
         section("Topics to revise", "From your recent quiz answers")
         chips([(f"{s.name} · {s.accuracy:.0%}", "critical") for s in weak[:8]],
-              empty="No weak topics yet. A topic is judged after 3 answers.")
+              empty=f"No weak topics yet. A topic is judged after {memory.MIN_ANSWERS} answers.")
         if strong:
             html('<div class="pa-section-sub" style="margin-top:.6rem">Strong</div>')
             chips([(s.name, "good") for s in strong[:6]])
@@ -102,8 +103,10 @@ if attempts:
         for a in attempts[:5]:
             pct = a["score"] / a["total"] if a["total"] else 0
             tone = "good" if pct >= 0.8 else "warning" if pct >= 0.6 else "critical"
-            when = datetime.fromisoformat(a["created_at"]).strftime("%d %b, %H:%M")
-            rows.append(row(f"📝 Quiz · {when} UTC",
+            # SQLite stores UTC; show the student's local time.
+            when = (datetime.fromisoformat(a["created_at"]).replace(tzinfo=timezone.utc)
+                    .astimezone().strftime("%d %b, %H:%M"))
+            rows.append(row(f"📝 Quiz · {when}",
                             badge(f"{a['score']}/{a['total']}", "gray") + badge(f"{pct:.0%}", tone)))
         html("".join(rows))
 

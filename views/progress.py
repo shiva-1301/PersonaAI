@@ -68,7 +68,8 @@ with right, card("status"):
     learning = sorted((s for s in tested if s.status == "learning"), key=lambda s: s.accuracy)
     if learning:
         html('<div class="pa-section-sub" style="margin-top:.6rem"><b>Still learning</b> '
-             "(fewer than 3 answers, or 60-79%)</div>")
+             f"(fewer than {memory.MIN_ANSWERS} answers, or {memory.WEAK_BELOW:.0%}"
+             f"–{memory.STRONG_FROM:.0%})</div>")
         more = [(f"+{len(learning) - 6} more in the chart", "gray")] if len(learning) > 6 else []
         chips([(f"{s.name} · {s.accuracy:.0%}", "warning") for s in learning[:6]] + more)
 

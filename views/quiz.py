@@ -132,22 +132,31 @@ def take(state: dict) -> None:
             on_change=_record_answer, args=(state, i),
         )
 
+    for message in st.session_state.pop("quiz_warning", []):
+        st.warning(message)
+
     prev_col, cancel_col, next_col = st.columns([1, 1, 1])
     if prev_col.button("Previous", icon=":material/arrow_back:", disabled=i == 0, use_container_width=True):
         state["current"] = i - 1
         st.rerun()
-    if cancel_col.button("Cancel quiz", type="tertiary", use_container_width=True):
-        del st.session_state.active_quiz
-        st.rerun()
+    # A popover, so one stray click can't throw away every answer.
+    with cancel_col.popover("Cancel quiz", icon=":material/close:", use_container_width=True):
+        st.caption(f"Discard this quiz? Your {answered} answer{'s' if answered != 1 else ''} won't be saved.")
+        if st.button("Yes, discard", type="primary", key="cancel_quiz"):
+            del st.session_state.active_quiz
+            st.rerun()
     if i < len(questions) - 1:
         if next_col.button("Next", icon=":material/arrow_forward:", type="primary", use_container_width=True):
             state["current"] = i + 1
             st.rerun()
     elif next_col.button("Submit answers", icon=":material/check:", type="primary", use_container_width=True):
-        missing = [str(j + 1) for j, a in enumerate(answers) if a is None]
+        missing = [j for j, a in enumerate(answers) if a is None]
         if missing:
-            st.warning(f"Answer every question first. Missing: {', '.join(missing)}")
-            return
+            # Take the student straight to the first unanswered question.
+            st.session_state.quiz_warning = [
+                f"Answer every question first. Missing: {', '.join(str(j + 1) for j in missing)}"]
+            state["current"] = missing[0]
+            st.rerun()
         state["result"] = quiz.submit(user_id, questions, list(answers))
         state["chosen"] = list(answers)
         st.rerun()
