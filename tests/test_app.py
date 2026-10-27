@@ -16,28 +16,88 @@ def signed_in(page: str, user_id: int, name: str = "Vivek") -> AppTest:
     return at
 
 
-def test_login_flow(tmp_path, monkeypatch):
+def _app(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "DB_PATH", tmp_path / "app.db")
-    from core import rag
+    from core import db, rag
     monkeypatch.setattr(rag, "warm_up", lambda: None)
-    at = AppTest.from_file("../app.py", default_timeout=10).run()
+    db.init_db()
+    db.import_students([{"hall_ticket": "22B81A0501", "name": "Ananya Rao", "department": "CSE", "year": "3"}])
+    return AppTest.from_file("../app.py", default_timeout=10).run()
+
+
+def sign_in(at, ticket, password):
+    at.text_input[0].input(ticket)
+    at.text_input[1].input(password)
+    at.button[0].click().run()
     assert not at.exception
+
+
+def test_first_sign_in_then_password_login(tmp_path, monkeypatch):
+    at = _app(tmp_path, monkeypatch)
     assert "pa-login-title" in text(at) and not at.sidebar.button  # no sidebar before login
 
-    at.text_input[0].input("Vivek")
+    sign_in(at, "22b81a0501", "")  # registered, no password yet
+    assert "First sign-in for <b>22B81A0501</b>" in text(at)
+    at.text_input[0].input("secret123")
+    at.text_input[1].input("secret123")
     at.button[0].click().run()
     assert not at.exception
-    assert at.session_state.username == "Vivek"
-    assert "Welcome back, Vivek" in text(at)  # home page hero
+    assert at.session_state.username == "22B81A0501" and at.session_state.role == "student"
+    assert "Welcome back, Ananya" in text(at)  # home page hero
+    assert "CSE · Year 3" in " ".join(m.value for m in at.sidebar.markdown)
     assert [b.label for b in at.sidebar.button] == ["Log out"]
 
+    at.sidebar.button[0].click().run()  # log out, then sign in with the password
+    sign_in(at, "22B81A0501", "wrong-pass")
+    assert at.error[0].value == "Wrong hall ticket number or password."
+    sign_in(at, "22B81A0501", "secret123")
+    assert at.session_state.role == "student"
 
-def test_empty_username_shows_error(tmp_path, monkeypatch):
-    monkeypatch.setattr(config, "DB_PATH", tmp_path / "app.db")
-    at = AppTest.from_file("../app.py").run()
+
+def test_unknown_or_empty_hall_ticket_is_refused(tmp_path, monkeypatch):
+    at = _app(tmp_path, monkeypatch)
     at.button[0].click().run()
-    assert at.error[0].value == "Please enter a username."
+    assert at.error[0].value == "Please enter your hall ticket number."
+    sign_in(at, "99X99", "whatever")
+    assert "isn't registered" in at.error[0].value
     assert "user_id" not in at.session_state
+
+
+def test_admin_sign_in_shows_only_admin_page(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "ADMIN_PASSWORD", "admin-pass")
+    at = _app(tmp_path, monkeypatch)
+    sign_in(at, "admin", "admin-pass")
+    assert at.session_state.role == "admin"
+    assert "Import a class list" in text(at)
+    assert "Administrator" in " ".join(m.value for m in at.sidebar.markdown)
+
+
+def test_admin_page_shares_notes_with_a_cohort(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "DB_PATH", tmp_path / "app.db")
+    from core import db, ingest
+    db.init_db()
+    db.import_students([{"hall_ticket": "22B81A0501", "name": "Ananya Rao", "department": "CSE", "year": "3"}])
+    admin = db.get_or_create_user("admin")["id"]
+    at = AppTest.from_file("../views/admin.py", default_timeout=10)
+    at.session_state.user_id, at.session_state.username, at.session_state.role = admin, "admin", "admin"
+    at.run()
+    assert not at.exception
+    assert "CSE · Year 3" in text(at) and "1 students" in text(at)
+
+    [subject_box] = [t for t in at.text_input if t.label == "New subject"]
+    subject_box.input("Big Data")
+    next(b for b in at.button if b.label == "Add subject").click().run()
+    assert not at.exception
+    cohort = db.get_or_create_cohort("CSE", "3")
+    assert [s["name"] for s in db.list_subjects(cohort)] == ["Big Data"]
+
+
+def test_admin_page_is_closed_to_students(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "DB_PATH", tmp_path / "app.db")
+    from core import db
+    db.init_db()
+    at = signed_in("admin", db.get_or_create_user("22B81A0501")["id"]).run()
+    assert "for the admin only" in at.warning[0].value
 
 
 def test_page_requires_login(tmp_path, monkeypatch):

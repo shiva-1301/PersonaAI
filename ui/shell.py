@@ -14,13 +14,22 @@ PAGES = [
     ("views/progress.py", "Progress", ":material/monitoring:", "progress"),
     ("views/study_plan.py", "Study Plan", ":material/event_note:", "plan"),
 ]
+ADMIN_PAGES = [
+    ("views/admin.py", "Admin", ":material/admin_panel_settings:", "admin"),
+]
 
 
-def pages() -> list:
+def pages(role: str = "student") -> list:
+    registry = ADMIN_PAGES if role == "admin" else PAGES
     return [
         st.Page(path, title=title, icon=icon, url_path=url, default=(i == 0))
-        for i, (path, title, icon, url) in enumerate(PAGES)
+        for i, (path, title, icon, url) in enumerate(registry)
     ]
+
+
+def cohort_label(cohort_id: int | None) -> str:
+    cohort = db.get_cohort(cohort_id) if cohort_id else None
+    return f"{cohort['department']} · Year {cohort['year']}" if cohort else ""
 
 
 def sidebar(nav_pages: list, current) -> None:
@@ -33,12 +42,18 @@ def sidebar(nav_pages: list, current) -> None:
                 st.page_link(page)
         active_nav_css(current.url_path or "home")
         with st.container(key="profile"):
-            name = st.session_state.username
+            name = st.session_state.get("full_name") or st.session_state.username
+            if st.session_state.get("role") == "admin":
+                detail = "Administrator"
+            else:
+                detail = " · ".join(x for x in (st.session_state.username if name != st.session_state.username
+                                                else "", cohort_label(st.session_state.get("cohort_id"))) if x)
             html(
                 '<div class="pa-profile">'
                 f'<div class="pa-avatar">{escape(name[:1].upper())}</div><div style="min-width:0">'
                 f'<div class="pa-profile-small">Signed in as</div><div class="pa-profile-name">{escape(name)}</div>'
-                "</div></div>"
+                + (f'<div class="pa-profile-small">{escape(detail)}</div>' if detail else "")
+                + "</div></div>"
             )
             st.caption(f"AI model: {llm.active_model().split(' / ')[-1]}")
             if st.button("Log out", icon=":material/logout:", use_container_width=True):
@@ -55,6 +70,15 @@ def require_login() -> int:
         st.warning("Please sign in first.")
         st.stop()
     return st.session_state.user_id
+
+
+def require_admin() -> int:
+    """Like require_login(), but only for the admin account."""
+    user_id = require_login()
+    if st.session_state.get("role") != "admin":
+        st.warning("This page is for the admin only.")
+        st.stop()
+    return user_id
 
 
 @st.cache_resource(show_spinner="Loading the search models (first time only, ~30s)...")

@@ -10,7 +10,7 @@ from ui.shell import require_login
 from ui.styles import Stat, badge, card, chips, hero_text, html, row, section, stat_row
 
 user_id = require_login()
-name = st.session_state.username
+name = (st.session_state.get("full_name") or st.session_state.username).split()[0]
 
 documents = db.list_documents(user_id)
 attempts = db.list_quiz_attempts(user_id)
