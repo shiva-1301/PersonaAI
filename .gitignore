@@ -12,3 +12,9 @@ data/
 
 # Evaluation index (rebuilt on demand)
 evaluation/.cache/
+
+# Generated: organised copies of notes/, demo accounts (sign-up codes), screen-test output
+notes_organized/
+demo_accounts/
+test_screenshots/
+.pytest_cache/
