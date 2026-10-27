@@ -38,6 +38,7 @@ class TopicStat:
     correct: int  # all-time correct answers
     accuracy: float | None  # over the last db.RECENT_ANSWERS answers; None if untested
     last_seen: str | None
+    subject: str | None = None  # the document's subject, if set
 
     @property
     def status(self) -> str:
@@ -72,6 +73,7 @@ def topic_stats(user_id: int, topic_ids: list[int] | None = None) -> list[TopicS
             correct=r["correct"] or 0,
             accuracy=r["accuracy"],
             last_seen=r["last_seen"],
+            subject=r["subject"],
         )
         for r in db.topic_scores(user_id)
     ]

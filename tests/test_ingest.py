@@ -75,3 +75,25 @@ def test_topic_failure_does_not_fail_upload(env, monkeypatch):
     result = ingest.ingest(env, "hive.txt", NOTES.encode())
     assert result.warning and result.topics == []
     assert len(db.list_documents(env)) == 1
+
+
+def test_shared_course_notes_are_searchable_by_their_cohort_only(env, monkeypatch):
+    fake_llm(monkeypatch, '{"topics": ["Hive tables"]}')
+    db.import_students([
+        {"hall_ticket": "CSE01", "name": "A", "department": "CSE", "year": "3"},
+        {"hall_ticket": "ECE01", "name": "B", "department": "ECE", "year": "3"},
+    ])
+    admin = db.get_or_create_user("admin")["id"]
+    cse = db.get_or_create_cohort("CSE", "3")
+    subject = db.add_subject(cse, "Big Data")
+    result = ingest.ingest(admin, "hive.txt", NOTES.encode(), cohort_id=cse, subject_id=subject, unit="Unit 4")
+    assert (config.UPLOADS_DIR / f"cohort_{cse}" / "hive.txt").exists()
+
+    cse_student, ece_student = db.find_user("CSE01")["id"], db.find_user("ECE01")["id"]
+    hits = rag.retrieve(cse_student, "what happens when you drop an external table?")
+    assert hits and hits[0].document_id == result.document_id
+    assert vectorstore.search(ece_student, "external table") == []
+    # A student's own notes are still private to them.
+    own = ingest.ingest(ece_student, "mine.txt", NOTES.encode())
+    assert {h.document_id for h in vectorstore.search(ece_student, "external table")} == {own.document_id}
+    assert own.document_id not in {h.document_id for h in vectorstore.search(cse_student, "external table")}

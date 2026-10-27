@@ -1,12 +1,13 @@
 """ChromaDB: embed, store and retrieve chunks.
 
 Embeddings are computed locally with sentence-transformers, so no API calls are made
-here. All users share one collection; every query is filtered by user_id.
+here. All users share one collection; every query is filtered to the user's own chunks
+plus their cohort's shared course notes.
 """
 
 from dataclasses import dataclass
 
-from core import config
+from core import config, db
 from core.documents import Chunk
 
 EMBED_MODEL = "all-MiniLM-L6-v2"
@@ -54,7 +55,10 @@ def _collection():
     return _client.get_or_create_collection(COLLECTION, metadata={"hnsw:space": "cosine"})
 
 
-def add_chunks(user_id: int, document_id: int, filename: str, chunks: list[Chunk]) -> None:
+def add_chunks(
+    user_id: int, document_id: int, filename: str, chunks: list[Chunk], cohort_id: int | None = None
+) -> None:
+    """cohort_id marks course notes shared with a cohort; personal notes have none."""
     if not chunks:
         return
     texts = [c.text for c in chunks]
@@ -65,6 +69,8 @@ def add_chunks(user_id: int, document_id: int, filename: str, chunks: list[Chunk
         metadatas=[
             {
                 "user_id": user_id,
+                # Chroma metadata can't hold None; 0 means "personal".
+                "cohort_id": cohort_id or 0,
                 "document_id": document_id,
                 "filename": filename,
                 # Chroma metadata can't hold None; 0 means "no page number".
@@ -83,8 +89,13 @@ def delete_document(document_id: int) -> None:
 def search(
     user_id: int, query: str, k: int = 5, document_ids: list[int] | None = None
 ) -> list[Hit]:
-    """Return the k chunks closest to the query by embedding similarity, best first."""
+    """Return the k chunks closest to the query by embedding similarity, best first.
+    Searches the user's own notes and the course notes shared with their cohort."""
+    user = db.get_user(user_id)
+    cohort_id = user["cohort_id"] if user else None
     where: dict = {"user_id": user_id}
+    if cohort_id:
+        where = {"$or": [where, {"cohort_id": cohort_id}]}
     if document_ids:
         where = {"$and": [where, {"document_id": {"$in": list(document_ids)}}]}
     result = _collection().query(

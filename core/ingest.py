@@ -45,8 +45,12 @@ class IngestResult:
     warning: str | None = None
 
 
-def ingest(user_id: int, filename: str, data: bytes, subject: str | None = None) -> IngestResult:
-    """Add a document for a user. Re-uploading a file with the same name replaces its
+def ingest(
+    user_id: int, filename: str, data: bytes, subject: str | None = None, *,
+    cohort_id: int | None = None, subject_id: int | None = None, unit: str | None = None,
+) -> IngestResult:
+    """Add a document: a student's personal notes, or (with cohort_id) course notes the
+    admin shares with a cohort. Re-uploading a file with the same name replaces its
     text but keeps its topics, so their quiz history survives.
     Raises documents.DocumentError for unreadable files."""
     filename = Path(filename).name
@@ -54,23 +58,25 @@ def ingest(user_id: int, filename: str, data: bytes, subject: str | None = None)
     chunks = chunk_pages(pages)
     page_count = len(pages) if pages[0].number else 0
 
-    path = _upload_path(user_id, filename)
+    path = _upload_path(user_id, filename, cohort_id)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(data)
 
-    existing = db.find_document(user_id, filename)
+    existing = db.find_document(user_id, filename, cohort_id=cohort_id)
     if existing:
         document_id = existing["id"]
         vectorstore.delete_document(document_id)
-        db.update_document(document_id, subject, page_count)
-        vectorstore.add_chunks(user_id, document_id, filename, chunks)
+        db.update_document(document_id, subject, page_count, subject_id=subject_id, unit=unit)
+        vectorstore.add_chunks(user_id, document_id, filename, chunks, cohort_id)
         topics = [t["name"] for t in db.list_topics(user_id, document_id)]
         if topics:
             return IngestResult(document_id, filename, len(pages), len(chunks), topics)
     else:
-        document_id = db.add_document(user_id, filename, subject, page_count)
+        document_id = db.add_document(
+            user_id, filename, subject, page_count, cohort_id=cohort_id, subject_id=subject_id, unit=unit
+        )
         try:
-            vectorstore.add_chunks(user_id, document_id, filename, chunks)
+            vectorstore.add_chunks(user_id, document_id, filename, chunks, cohort_id)
         except Exception:
             db.delete_document(document_id)
             path.unlink(missing_ok=True)
@@ -87,12 +93,13 @@ def ingest(user_id: int, filename: str, data: bytes, subject: str | None = None)
 
 
 def remove(user_id: int, document_id: int) -> None:
-    doc = next((d for d in db.list_documents(user_id) if d["id"] == document_id), None)
-    if doc is None:
+    """Delete a document the user owns (students can't delete shared course notes)."""
+    doc = db.get_document(document_id)
+    if doc is None or doc["user_id"] != user_id:
         return
     vectorstore.delete_document(document_id)
     db.delete_document(document_id)
-    _upload_path(user_id, doc["filename"]).unlink(missing_ok=True)
+    _upload_path(user_id, doc["filename"], doc["cohort_id"]).unlink(missing_ok=True)
 
 
 def extract_topics(pages: list[Page]) -> list[str]:
@@ -130,5 +137,6 @@ def _sample_text(pages: list[Page], limit: int) -> str:
     return "\n\n".join(p.text[:per_page] for p in pages)[:limit]
 
 
-def _upload_path(user_id: int, filename: str) -> Path:
-    return config.UPLOADS_DIR / str(user_id) / filename
+def _upload_path(user_id: int, filename: str, cohort_id: int | None = None) -> Path:
+    folder = f"cohort_{cohort_id}" if cohort_id else str(user_id)
+    return config.UPLOADS_DIR / folder / filename
