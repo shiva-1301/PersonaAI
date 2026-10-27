@@ -71,15 +71,18 @@ with left:
         current = planner.latest(user_id)
         today = current[1].day(date.today()) if current else None
         if today and today.tasks:
-            icons = {"study": "📖", "review": "🔁", "mock": "📝", "revision": "🎯"}
-            html("".join(row(f"{icons[t.kind]} {escape(t.title)}", badge(f"{t.hours:g} h", "blue"))
-                         for t in today.tasks))
+            icons = {"study": "📖", "review": "🔁", "mock": "📝", "revision": "🎯", "exam": "🎓"}
+            html("".join(
+                row(f"{icons[t.kind]} {escape(f'{t.subject} · ' if t.subject and t.kind != 'exam' else '')}"
+                    f"{escape(t.title)}",
+                    badge("Exam", "violet") if t.kind == "exam" else badge(f"{t.hours:g} h", "blue"))
+                for t in today.tasks))
             if today.done:
                 html(badge("Done for today", "good", "✓ "))
         elif current:
             st.caption("Nothing planned for today.")
         else:
-            st.caption("No study plan yet. Tell PersonaAI your exam date and it builds a "
+            st.caption("No study plan yet. Enter your exam timetable and PersonaAI builds a "
                        "day-by-day plan that gives weak topics extra time.")
         if st.button("Open study plan" if current else "Create a study plan",
                      icon=":material/event_note:", key="open_plan"):

@@ -14,7 +14,7 @@ user_id = require_login()
 
 page_header(
     "Study Plan",
-    "A day-by-day revision plan for your exam that gives your weak topics extra time.",
+    "A day-by-day revision plan for your exam timetable that gives your weak topics extra time.",
 )
 
 today = date.today()
@@ -24,7 +24,28 @@ KINDS = {
     "review": ("🔁", "Review + 5-question quiz", "aqua"),
     "mock": ("📝", "Mock exam", "violet"),
     "revision": ("🎯", "Final revision", "orange"),
+    "exam": ("🎓", "Exam", "violet"),
 }
+
+
+def _timetable_rows(subjects: list[str]) -> pd.DataFrame:
+    """The saved timetable, or one row per subject (two days apart) to edit."""
+    saved = [e for e in db.list_exams(user_id) if date.fromisoformat(e["exam_date"]) > today]
+    if saved:
+        rows = [(e["subject"], date.fromisoformat(e["exam_date"]), e["start_time"] or "") for e in saved]
+    else:
+        rows = [(s, today + timedelta(days=14 + 2 * i), "10:00") for i, s in enumerate(subjects)]
+    return pd.DataFrame(rows, columns=["Subject", "Date", "Time"])
+
+
+def _exams_from(table: pd.DataFrame) -> list[planner.Exam]:
+    exams = []
+    for row in table.itertuples(index=False):
+        if not row.Subject or pd.isna(row.Date):
+            continue
+        time = str(row.Time).strip() if isinstance(row.Time, str) else ""
+        exams.append(planner.Exam(str(row.Subject), pd.Timestamp(row.Date).date(), time or None))
+    return exams
 
 
 # ---------------------------------------------------------------- create
@@ -34,30 +55,35 @@ def new_plan_form(existing: planner.Plan | None) -> None:
     if not documents:
         callout("Upload your notes on the Notes Q&A page first.", "blue", "👉")
         return
-    names = {d["id"]: d["filename"] for d in documents}
+    subjects = planner.subject_names(user_id)
+    if not subjects:
+        callout("Your notes have no topics yet. Check them on the Notes Q&A page.", "blue", "👉")
+        return
     left, right = st.columns([1.5, 1], gap="large")
     with left, card("plan_form"):
-        section("Plan your revision", "Tell PersonaAI when the exam is and how much time you have.")
+        section("Your exam timetable", "One row per exam. Add or remove rows; leave out subjects "
+                "you aren't writing.")
         with st.form("new_plan", border=False):
-            c1, c2 = st.columns(2)
-            exam = c1.date_input(
-                "Exam date",
-                value=date.fromisoformat(existing.exam_date) if existing else today + timedelta(days=14),
-                min_value=today + timedelta(days=1),
+            table = st.data_editor(
+                _timetable_rows(subjects),
+                num_rows="dynamic", hide_index=True, use_container_width=True, key="timetable",
+                column_config={
+                    "Subject": st.column_config.SelectboxColumn(options=subjects, required=True, width="large"),
+                    "Date": st.column_config.DateColumn(min_value=today + timedelta(days=1), required=True,
+                                                        format="ddd D MMM YYYY"),
+                    "Time": st.column_config.TextColumn(help="Start time, e.g. 10:00", max_chars=8),
+                },
             )
-            hours = c2.number_input(
+            hours = st.number_input(
                 "Study hours per day", min_value=0.5, max_value=12.0, step=0.5,
                 value=float(existing.hours_per_day) if existing else 3.0,
-            )
-            doc_ids = st.multiselect(
-                "Documents to cover", list(names), format_func=names.get, placeholder="All documents"
             )
             submitted = st.form_submit_button(
                 "Create plan", type="primary", icon=":material/event_available:", use_container_width=True
             )
         if submitted:
             try:
-                planner.create(user_id, exam, hours, doc_ids or None)
+                planner.create_for_exams(user_id, _exams_from(table), hours)
             except planner.PlanError as exc:
                 st.error(str(exc))
                 return
@@ -73,9 +99,11 @@ def new_plan_form(existing: planner.Plan | None) -> None:
         tones = {"weak": "critical", "new": "gray", "learning": "warning", "strong": "good"}
         chips([(f"{memory.STATUS_LABELS[k]} · {w}×", tones[k]) for k, w in planner.WEIGHTS.items()])
         st.markdown(
-            "- Every topic gets at least 30 minutes.\n"
+            "- Subjects are studied side by side; the **nearest exam and weakest subject** "
+            "get the biggest share of each day.\n"
             "- Each topic is studied, then reviewed with a short quiz about 2 days later.\n"
-            "- The last two days are a mock exam and a weak-topic revision.\n"
+            "- The **day before each exam** is revision for that subject; after an exam, "
+            "the subject leaves the plan.\n"
             "- **Regenerate** after a few quizzes: improved topics get less time."
         )
 
@@ -89,8 +117,12 @@ def _toggle_done(plan_id: int, plan: planner.Plan, index: int, key: str) -> None
 
 def _task_chip(task: planner.Task, weak_ids: set[int]) -> str:
     icon, _, tone = KINDS[task.kind]
+    if task.kind == "exam":
+        return chip(f"{icon} {task.title}", tone)
     # Display-only shortening: the icon + legend already say it's a review with a quiz.
     title = task.title.replace("Review + 5-question quiz:", "Review:")
+    if task.subject and task.subject != planner.GENERAL_SUBJECT:
+        title = f"{task.subject} · {title}"
     if task.topic_id in weak_ids:
         return chip(f"⚑ {icon} {title} · {task.hours:g} h", "critical")
     return chip(f"{icon} {title} · {task.hours:g} h", tone)
@@ -120,8 +152,9 @@ def _day_card(plan_id: int, plan: planner.Plan, index: int, weak_ids: set[int]) 
 
 def show_plan(plan_id: int, plan: planner.Plan) -> None:
     exam = date.fromisoformat(plan.exam_date)
+    # A timetable plan's last day is its last exam, so it stays useful on that day.
     days_left = (exam - today).days
-    if days_left < 1:
+    if days_left < (0 if plan.exams else 1):
         callout(f"Your exam on {exam:%a %d %b} has passed. Create a plan for your next one.", "blue", "🎓")
         new_plan_form(None)
         return
@@ -129,8 +162,18 @@ def show_plan(plan_id: int, plan: planner.Plan) -> None:
     stats = {s.topic_id: s for s in memory.topic_stats(user_id)}
     weak_ids = {tid for tid, s in stats.items() if s.status == "weak"}
     done = sum(d.done for d in plan.days)
+    exams_ahead = [e for e in plan.exams or [] if e["date"] >= today.isoformat()]
+    if exams_ahead:
+        nxt = exams_ahead[0]
+        nxt_day = date.fromisoformat(nxt["date"])
+        nxt_left = (nxt_day - today).days
+        exam_stat = Stat(f"Next exam: {nxt['subject']}", f"{nxt_day:%d %b}", "🎓", "violet",
+                         "today" if nxt_left == 0 else f"{nxt_left} day{'s' if nxt_left != 1 else ''} left"
+                         + (f" · {len(exams_ahead)} exams to go" if len(exams_ahead) > 1 else ""))
+    else:
+        exam_stat = Stat("Exam", f"{exam:%d %b}", "🎓", "violet", f"{days_left} day{'s' if days_left != 1 else ''} left")
     stat_row([
-        Stat("Exam", f"{exam:%d %b}", "🎓", "violet", f"{days_left} day{'s' if days_left != 1 else ''} left"),
+        exam_stat,
         Stat("Hours per day", f"{plan.hours_per_day:g} h", "⏱️", "blue", f"{sum(plan.topic_hours.values()):g} h of topic study"),
         Stat("Days done", f"{done} / {len(plan.days)}", "✅", "aqua"),
         Stat("Topics covered", str(len(plan.topic_hours)), "📚", "orange",
@@ -140,7 +183,11 @@ def show_plan(plan_id: int, plan: planner.Plan) -> None:
     c1, c2, _ = st.columns([1.5, 1, 2.5])
     if c1.button("Regenerate with latest scores", type="primary", icon=":material/refresh:",
                  use_container_width=True):
-        new = planner.regenerate(user_id, plan, today)
+        try:
+            new = planner.regenerate(user_id, plan, today)
+        except planner.PlanError as exc:
+            st.error(str(exc))
+            return
         names = {s.topic_id: s.name for s in stats.values()}
         st.session_state.plan_changes = planner.changes(plan, new, names)
         st.rerun()
@@ -176,6 +223,7 @@ def show_plan(plan_id: int, plan: planner.Plan) -> None:
         rows = [
             {
                 "Topic": stats[tid].name if tid in stats else "(deleted topic)",
+                "Subject": planner.subject_of(stats[tid]) if tid in stats else "",
                 "Status": stats[tid].label if tid in stats else "",
                 "Planned hours": hours,
             }

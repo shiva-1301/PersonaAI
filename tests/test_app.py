@@ -239,7 +239,10 @@ def test_study_plan_create_mark_done_and_regenerate(tmp_path, monkeypatch):
     at.number_input[0].set_value(2.0)
     click(at, "Create plan")
     plan_id, plan = planner.latest(uid)
-    assert len(plan.days) == 14 and set(plan.topic_hours) == set(ids.values())
+    # Default timetable: one exam ("General": notes without a subject) two weeks out.
+    assert [e["subject"] for e in plan.exams] == ["General"]
+    assert len(plan.days) == 15 and set(plan.topic_hours) == set(ids.values())
+    assert plan.days[-1].tasks[0].kind == "exam" and "Next exam: General" in text(at)
     # Weak "Hive tables" (25%) gets the most time and is flagged as a priority chip
     assert max(plan.topic_hours, key=plan.topic_hours.get) == ids["Hive tables"]
     assert "⚑" in text(at) and "Today" in text(at)
@@ -250,3 +253,25 @@ def test_study_plan_create_mark_done_and_regenerate(tmp_path, monkeypatch):
 
     click(at, "Regenerate with latest scores")
     assert "Plan regenerated" in at.success[0].value  # no new quizzes -> unchanged
+
+
+def test_study_plan_timetable_for_cohort_subjects(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "DB_PATH", tmp_path / "app.db")
+    from core import db, planner
+    db.init_db()
+    db.import_students([{"hall_ticket": "22B81A0501", "name": "Ananya Rao", "department": "CSE", "year": "3"}])
+    admin = db.get_or_create_user("admin")["id"]
+    cse = db.get_or_create_cohort("CSE", "3")
+    for subject in ("DBMS", "Operating Systems"):
+        doc = db.add_document(admin, f"{subject}.pdf", None, 5, cohort_id=cse,
+                              subject_id=db.add_subject(cse, subject), unit="Unit 1")
+        db.set_topics(admin, doc, [f"{subject} basics", f"{subject} advanced"])
+    uid = db.find_user("22B81A0501")["id"]
+
+    at = signed_in("study_plan", uid).run()
+    assert not at.exception
+    click(at, "Create plan")  # default timetable: one row per subject, two days apart
+    _, plan = planner.latest(uid)
+    assert [e["subject"] for e in plan.exams] == ["DBMS", "Operating Systems"]
+    assert [e["exam_date"] for e in db.list_exams(uid)] == [e["date"] for e in plan.exams]
+    assert "DBMS · Study:" in text(at) and "Next exam: DBMS" in text(at)

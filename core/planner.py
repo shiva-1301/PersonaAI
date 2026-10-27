@@ -8,6 +8,12 @@ The plan is built by rules, not the LLM, so its guarantees hold every time:
   3. The last days before the exam are a mock-quiz day and a weak-topic revision day.
 Regenerating re-runs this with the latest topic scores, so improving on a topic
 shrinks its share of the plan.
+
+With an exam timetable (several subjects, each with its own date), subjects are studied
+side by side: each day is split between the subjects whose exam is still ahead, by
+weight / days left, so the nearest and weakest subjects get the most time. The day
+before an exam is that subject's revision day, and nothing of a subject is planned
+after its exam.
 """
 
 import json
@@ -35,6 +41,7 @@ class Task:
     title: str
     hours: float
     topic_id: int | None = None
+    subject: str | None = None  # set in timetable plans
 
 
 @dataclass
@@ -56,6 +63,7 @@ class Plan:
     days: list[Day]
     topic_hours: dict[int, float]  # topic_id -> planned hours
     document_ids: list[int] | None = None  # scope to reuse when regenerating; None = all
+    exams: list[dict] | None = None  # timetable plans: [{"subject", "date", "time"}]
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -69,7 +77,7 @@ class Plan:
         topic_hours = {int(k): v for k, v in data["topic_hours"].items()}
         return cls(
             data["exam_date"], data["hours_per_day"], data["generated_on"], days, topic_hours,
-            data.get("document_ids"),
+            data.get("document_ids"), data.get("exams"),
         )
 
     def day(self, on: date) -> Day | None:
@@ -137,10 +145,11 @@ def _allocate_slots(
 
 
 def _schedule(
-    days: list[Day], topics: list[TopicStat], slots: dict[int, int], per_day: int
+    days: list[Day], topics: list[TopicStat], slots: dict[int, int], per_day: int | list[int]
 ) -> None:
     """Fill study days greedily: due reviews first, then the next topics in syllabus
-    order. Sessions that don't fit continue on the next day."""
+    order. Sessions that don't fit continue on the next day. per_day is the slots free
+    each day: one number, or one per day."""
     names = {t.topic_id: t.name for t in topics}
     study = []  # [topic_id, slots_left]
     for t in topics:
@@ -152,7 +161,7 @@ def _schedule(
     review_slots = {t.topic_id: slots[t.topic_id] - s for t, (_, s) in zip(topics, study)}
 
     for i, day in enumerate(days):
-        free = per_day
+        free = per_day[i] if isinstance(per_day, list) else per_day
         started_today = set()
 
         def add(kind, tid, n):
@@ -215,6 +224,130 @@ def _final_day_tasks(kind: str, topics: list[TopicStat], hours: float) -> list[T
     return tasks
 
 
+# --- Exam timetable plans ---
+
+GENERAL_SUBJECT = "General"  # for notes uploaded without a subject
+
+
+@dataclass
+class Exam:
+    subject: str
+    date: date
+    time: str | None = None
+
+
+def subject_of(stat: TopicStat) -> str:
+    return stat.subject or GENERAL_SUBJECT
+
+
+def subject_names(user_id: int) -> list[str]:
+    """Subjects the user has topics in, for the timetable's subject choices."""
+    return sorted({subject_of(s) for s in memory.topic_stats(user_id)}, key=str.lower)
+
+
+def build_exam_plan(
+    stats: list[TopicStat], exams: list[Exam], hours_per_day: float, today: date | None = None
+) -> Plan:
+    today = today or date.today()
+    if not exams:
+        raise PlanError("Add at least one exam to the timetable.")
+    exams = sorted(exams, key=lambda e: (e.date, e.time or ""))
+    if len({e.subject.lower() for e in exams}) < len(exams):
+        raise PlanError("Each subject can appear only once in the timetable.")
+    for e in exams:
+        if e.date <= today:
+            raise PlanError(f"The {e.subject} exam date must be after today.")
+    slots_per_day = int(hours_per_day / SLOT_HOURS)
+    if slots_per_day < 1:
+        raise PlanError(f"Plan at least {SLOT_HOURS} hours per day.")
+    topics = {
+        e.subject: sorted((s for s in stats if subject_of(s).lower() == e.subject.lower()),
+                          key=lambda s: (s.document_id or 0, s.topic_id))
+        for e in exams
+    }
+    for subject, subject_topics in topics.items():
+        if not subject_topics:
+            raise PlanError(f"No topics for {subject}. Upload its notes, or check the subject name.")
+
+    n_days = (exams[-1].date - today).days
+    days = [Day((today + timedelta(days=i)).isoformat()) for i in range(n_days + 1)]
+    exam_days = {e.date for e in exams}
+    # The day before each exam is its revision day, unless that day is itself an exam day.
+    revision = {}
+    for e in exams:
+        before = e.date - timedelta(days=1)
+        if before >= today and before not in exam_days and before not in revision:
+            revision[before] = e
+    # Study slots per subject per day.
+    capacity = {e.subject: [0] * len(days) for e in exams}
+    weight = {s: sum(WEIGHTS[t.status] for t in ts) for s, ts in topics.items()}
+
+    for i, day in enumerate(days):
+        d = today + timedelta(days=i)
+        free = slots_per_day
+        for e in exams:
+            if e.date == d:
+                at = f" at {e.time}" if e.time else ""
+                day.tasks.append(Task("exam", f"Exam: {e.subject}{at}", 0, subject=e.subject))
+                free = slots_per_day // 2  # after the exam: half a day for the next ones
+        if d in revision:
+            e = revision[d]
+            for task in _final_day_tasks("revision", topics[e.subject], hours_per_day):
+                task.subject = e.subject
+                day.tasks.append(task)
+            continue
+        ahead = [e for e in exams if e.date > d]
+        if not ahead or not free:
+            continue
+        # Nearer and weaker subjects get more of the day (largest-remainder rounding).
+        shares = {e.subject: weight[e.subject] / (e.date - d).days for e in ahead}
+        total = sum(shares.values())
+        exact = {s: free * w / total for s, w in shares.items()}
+        given = {s: int(x) for s, x in exact.items()}
+        for s in sorted(exact, key=lambda s: -(exact[s] % 1))[: free - sum(given.values())]:
+            given[s] += 1
+        for s, n in given.items():
+            capacity[s][i] = n
+
+    topic_hours = {}
+    for e in exams:
+        caps = capacity[e.subject]
+        subject_topics = topics[e.subject]
+        if sum(caps) < len(subject_topics):
+            raise PlanError(
+                f"Not enough time before the {e.subject} exam on {e.date:%d %b} to cover its "
+                f"{len(subject_topics)} topics at {hours_per_day:g} h/day. Plan more hours per day."
+            )
+        study_idx = [i for i, n in enumerate(caps) if n]
+        slots = _allocate_slots(subject_topics, sum(caps), len(study_idx), hours_per_day)
+        scratch = [Day(days[i].date) for i in study_idx]
+        _schedule(scratch, subject_topics, slots, [caps[i] for i in study_idx])
+        for i, part in zip(study_idx, scratch):
+            for task in part.tasks:
+                task.subject = e.subject
+            days[i].tasks.extend(part.tasks)
+        topic_hours.update({t.topic_id: slots[t.topic_id] * SLOT_HOURS for t in subject_topics})
+
+    return Plan(
+        exam_date=exams[-1].date.isoformat(),
+        hours_per_day=hours_per_day,
+        generated_on=today.isoformat(),
+        days=days,
+        topic_hours=topic_hours,
+        exams=[{"subject": e.subject, "date": e.date.isoformat(), "time": e.time} for e in exams],
+    )
+
+
+def create_for_exams(
+    user_id: int, exams: list[Exam], hours_per_day: float, today: date | None = None
+) -> Plan:
+    """Build a timetable plan from the user's latest topic scores; save it and the timetable."""
+    plan = build_exam_plan(memory.topic_stats(user_id), exams, hours_per_day, today)
+    db.set_exams(user_id, [(e["subject"], e["date"], e["time"]) for e in plan.exams])
+    db.save_study_plan(user_id, plan.exam_date, hours_per_day, json.dumps(plan.to_dict()))
+    return plan
+
+
 # --- Persistence ---
 
 def create(
@@ -235,7 +368,15 @@ def create(
 
 
 def regenerate(user_id: int, old: Plan, today: date | None = None) -> Plan:
-    """Same exam, hours and documents; fresh schedule from today with the latest scores."""
+    """Same exam(s), hours and documents; fresh schedule from today with the latest scores.
+    Exams that have already happened are dropped from a timetable plan."""
+    if old.exams:
+        today = today or date.today()
+        upcoming = [Exam(e["subject"], date.fromisoformat(e["date"]), e.get("time"))
+                    for e in old.exams if date.fromisoformat(e["date"]) > today]
+        if not upcoming:
+            raise PlanError("Every exam in this plan has passed.")
+        return create_for_exams(user_id, upcoming, old.hours_per_day, today)
     return create(
         user_id, date.fromisoformat(old.exam_date), old.hours_per_day, old.document_ids, today
     )
