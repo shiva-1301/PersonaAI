@@ -36,10 +36,16 @@ def test_first_sign_in_then_password_login(tmp_path, monkeypatch):
     at = _app(tmp_path, monkeypatch)
     assert "pa-login-title" in text(at) and not at.sidebar.button  # no sidebar before login
 
+    from core import auth, db
     sign_in(at, "22b81a0501", "")  # registered, no password yet
     assert "First sign-in for <b>22B81A0501</b>" in text(at)
-    at.text_input[0].input("secret123")
+    at.text_input[0].input("WRONG-CODE")
     at.text_input[1].input("secret123")
+    at.text_input[2].input("secret123")
+    at.button[0].click().run()
+    assert "Ask your department admin" in at.error[0].value  # no code issued yet
+    code = auth.issue_setup_code(db.find_user("22B81A0501")["id"])
+    at.text_input[0].input(code)
     at.button[0].click().run()
     assert not at.exception
     assert at.session_state.username == "22B81A0501" and at.session_state.role == "student"
@@ -82,7 +88,7 @@ def test_admin_page_shares_notes_with_a_cohort(tmp_path, monkeypatch):
     at.session_state.user_id, at.session_state.username, at.session_state.role = admin, "admin", "admin"
     at.run()
     assert not at.exception
-    assert "CSE · Year 3" in text(at) and "1 students" in text(at)
+    assert "CSE · Year 3" in text(at) and "1 student<" in text(at)
 
     [subject_box] = [t for t in at.text_input if t.label == "New subject"]
     subject_box.input("Big Data")

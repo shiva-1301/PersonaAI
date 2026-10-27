@@ -28,7 +28,16 @@ CREATE TABLE IF NOT EXISTS users (
     created_at    TEXT NOT NULL DEFAULT (datetime('now')),
     full_name     TEXT,
     password_hash TEXT,
-    cohort_id     INTEGER REFERENCES cohorts(id) ON DELETE SET NULL
+    cohort_id     INTEGER REFERENCES cohorts(id) ON DELETE SET NULL,
+    -- Hash of the one-time code the admin gives a student to set their first password.
+    setup_code_hash TEXT
+);
+
+-- Failed sign-ins per username (lower case), for the lockout.
+CREATE TABLE IF NOT EXISTS login_failures (
+    username     TEXT PRIMARY KEY,
+    failures     INTEGER NOT NULL DEFAULT 0,
+    locked_until REAL
 );
 
 -- cohort_id set = course notes shared with that cohort (uploaded by the admin);
@@ -105,6 +114,7 @@ _NEW_COLUMNS = [
     ("users", "full_name", "TEXT"),
     ("users", "password_hash", "TEXT"),
     ("users", "cohort_id", "INTEGER REFERENCES cohorts(id) ON DELETE SET NULL"),
+    ("users", "setup_code_hash", "TEXT"),
     ("documents", "cohort_id", "INTEGER REFERENCES cohorts(id) ON DELETE CASCADE"),
     ("documents", "subject_id", "INTEGER REFERENCES subjects(id) ON DELETE SET NULL"),
     ("documents", "unit", "TEXT"),
@@ -167,9 +177,48 @@ def get_user(user_id: int, db_path=None) -> sqlite3.Row | None:
 
 
 def set_password_hash(user_id: int, password_hash: str | None, db_path=None) -> None:
-    """Store a password hash; None clears it so the student sets a new one at next sign-in."""
+    """Store a password hash; None clears it so the student sets a new one at next sign-in.
+    Setting a password also uses up the student's one-time sign-up code."""
     with connect(db_path) as conn:
-        conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (password_hash, user_id))
+        conn.execute(
+            "UPDATE users SET password_hash = ?,"
+            " setup_code_hash = CASE WHEN ? IS NULL THEN setup_code_hash END WHERE id = ?",
+            (password_hash, password_hash, user_id),
+        )
+
+
+def set_setup_code_hash(user_id: int, code_hash: str | None, db_path=None) -> None:
+    with connect(db_path) as conn:
+        conn.execute("UPDATE users SET setup_code_hash = ? WHERE id = ?", (code_hash, user_id))
+
+
+# --- Failed sign-ins ---
+
+def login_failures(username: str, db_path=None) -> sqlite3.Row | None:
+    with connect(db_path) as conn:
+        return conn.execute(
+            "SELECT * FROM login_failures WHERE username = ?", (username.strip().lower(),)
+        ).fetchone()
+
+
+def record_login_failure(username: str, limit: int, lock_seconds: float, now: float, db_path=None) -> None:
+    """Count a failed sign-in; the limit-th failure in a row locks the name for lock_seconds."""
+    key = username.strip().lower()
+    with connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO login_failures (username, failures) VALUES (?, 1)"
+            " ON CONFLICT(username) DO UPDATE SET failures = failures + 1",
+            (key,),
+        )
+        conn.execute(
+            "UPDATE login_failures SET failures = 0, locked_until = ? WHERE username = ? AND failures >= ?",
+            (now + lock_seconds, key, limit),
+        )
+
+
+def clear_login_failures(username: str, db_path=None) -> None:
+    with connect(db_path) as conn:
+        conn.execute("DELETE FROM login_failures WHERE username = ?", (username.strip().lower(),))
 
 
 # --- Cohorts, subjects, class lists ---
@@ -241,7 +290,8 @@ def import_students(rows: list[dict], db_path=None) -> tuple[int, int]:
 def list_students(cohort_id: int, db_path=None) -> list[sqlite3.Row]:
     with connect(db_path) as conn:
         return conn.execute(
-            "SELECT id, username, full_name, password_hash IS NOT NULL AS has_password"
+            "SELECT id, username, full_name, password_hash IS NOT NULL AS has_password,"
+            " setup_code_hash IS NOT NULL AS has_code"
             " FROM users WHERE cohort_id = ? ORDER BY username", (cohort_id,)
         ).fetchall()
 

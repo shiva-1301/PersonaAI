@@ -6,7 +6,7 @@ from html import escape
 import pandas as pd
 import streamlit as st
 
-from core import db, ingest
+from core import auth, db, ingest
 from core.documents import SUPPORTED_TYPES, DocumentError
 from ui.shell import cohort_label, load_models, require_admin
 from ui.styles import badge, callout, card, html, page_header, row, section
@@ -45,7 +45,9 @@ with students_tab:
                 "Re-importing updates names and cohorts; passwords and history are kept.")
         st.download_button("Download a sample CSV", SAMPLE_CSV, "class_list_sample.csv", "text/csv",
                            icon=":material/download:")
-        file = st.file_uploader("Class list (CSV)", type=["csv"], key="class_list_file")
+        # A new key after each import empties the uploader, so the same file isn't imported twice.
+        file = st.file_uploader("Class list (CSV)", type=["csv"],
+                                key=f"class_list_file_{st.session_state.get('imports', 0)}")
         if file is not None:
             try:
                 frame = read_class_list(file)
@@ -70,6 +72,7 @@ with students_tab:
                             st.error(str(exc))
                         else:
                             st.session_state.admin_message = f"Imported: {added} new, {updated} updated."
+                            st.session_state.imports = st.session_state.get("imports", 0) + 1
                             st.rerun()
         if message := st.session_state.pop("admin_message", None):
             st.success(message)
@@ -78,7 +81,7 @@ with students_tab:
         section("Cohorts", "A department and year. Students see their cohort's course notes.")
         if not cohorts:
             html('<div class="pa-empty">No cohorts yet. Import a class list to create them.</div>')
-        html("".join(row(f"👥 {escape(labels[c['id']])}", badge(f"{c['students']} students", "blue"))
+        html("".join(row(f"👥 {escape(labels[c['id']])}", badge(f"{c['students']} student{'s' if c['students'] != 1 else ''}", "blue"))
                      for c in cohorts))
 
     if cohorts:
@@ -90,17 +93,38 @@ with students_tab:
                 pd.DataFrame({
                     "Hall ticket": [s["username"] for s in students],
                     "Name": [s["full_name"] or "" for s in students],
-                    "Password set": ["Yes" if s["has_password"] else "Not yet" for s in students],
+                    "Status": ["Signed up" if s["has_password"] else "Code issued" if s["has_code"]
+                               else "Needs a sign-up code" for s in students],
                 }),
                 hide_index=True, use_container_width=True,
             )
-            with_password = {s["id"]: s["username"] for s in students if s["has_password"]}
-            if with_password:
+            # New codes are shown once (only their hashes are stored), until the admin dismisses them.
+            issued = st.session_state.get("issued_codes")
+            if issued:
+                callout("Hand each student their code now: codes can't be shown again. "
+                        "Each one works once, to set that student's first password.", "warning", "🔑",
+                        bold="Sign-up codes.")
+                table = pd.DataFrame(issued, columns=["Hall ticket", "Name", "Sign-up code"])
+                st.dataframe(table, hide_index=True, use_container_width=True)
+                c1, c2 = st.columns(2)
+                c1.download_button("Download codes (CSV)", table.to_csv(index=False), "signup_codes.csv",
+                                   "text/csv", icon=":material/download:", use_container_width=True)
+                if c2.button("I've handed them out", icon=":material/check:", use_container_width=True):
+                    del st.session_state.issued_codes
+                    st.rerun()
+            elif any(not s["has_password"] for s in students):
+                if st.button("Create sign-up codes for students without a password", type="primary",
+                             icon=":material/key:"):
+                    st.session_state.issued_codes = auth.issue_codes_for_cohort(cohort_id)
+                    st.rerun()
+            with_password = {s["id"]: s for s in students if s["has_password"]}
+            if with_password and not issued:
                 c1, c2 = st.columns([2, 1], vertical_alignment="bottom")
-                who = c1.selectbox("Forgot their password?", list(with_password), format_func=with_password.get)
+                who = c1.selectbox("Forgot their password?", list(with_password),
+                                   format_func=lambda i: with_password[i]["username"])
                 if c2.button("Reset password", icon=":material/lock_reset:", use_container_width=True):
-                    db.set_password_hash(who, None)
-                    st.toast(f"{with_password[who]} will choose a new password at next sign-in.")
+                    s = with_password[who]
+                    st.session_state.issued_codes = [(s["username"], s["full_name"] or "", auth.reset_password(who))]
                     st.rerun()
 
 # ---------------------------------------------------------------- course notes

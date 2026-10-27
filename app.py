@@ -28,9 +28,10 @@ def _start_session(account: auth.Account) -> None:
 
 def _first_password_form(ticket: str) -> None:
     """A registered student's first sign-in: they choose their password."""
-    html(f'<div class="pa-login-tag">First sign-in for <b>{escape(ticket)}</b>. '
-         "Choose a password you'll use from now on.</div>")
+    html(f'<div class="pa-login-tag">First sign-in for <b>{escape(ticket)}</b>. Enter the sign-up '
+         "code from your department, then choose a password you'll use from now on.</div>")
     with st.form("set_password", border=False):
+        code = st.text_input("Sign-up code", max_chars=12, placeholder="e.g. K7QF-3MXP")
         password = st.text_input("New password", type="password",
                                  help=f"At least {auth.MIN_PASSWORD_LENGTH} characters.")
         confirm = st.text_input("Confirm password", type="password")
@@ -38,11 +39,11 @@ def _first_password_form(ticket: str) -> None:
                                           use_container_width=True)
     if submitted:
         try:
-            account = auth.set_first_password(ticket, password, confirm)
+            account = auth.set_first_password(ticket, code, password, confirm)
         except auth.AuthError as exc:
-            st.error(str(exc))
-            return
-        _start_session(account)
+            st.error(str(exc))  # the way back below stays available
+        else:
+            _start_session(account)
     if st.button("Use a different hall ticket number", type="tertiary", use_container_width=True):
         st.session_state.pop("first_login", None)
         st.rerun()
@@ -78,8 +79,8 @@ def login_page() -> None:
                     st.error(str(exc))
                     return
                 _start_session(account)
-            st.caption("Your department registers your hall ticket number. "
-                       "On your first sign-in you choose a password.")
+            st.caption("Your department registers your hall ticket number and gives you a "
+                       "one-time sign-up code for your first sign-in.")
 
 
 if "user_id" not in st.session_state:
