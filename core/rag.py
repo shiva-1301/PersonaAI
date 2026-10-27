@@ -3,7 +3,7 @@
 import re
 from dataclasses import dataclass, field
 
-from core import llm, vectorstore
+from core import documents, llm, vectorstore
 
 # Retrieval is two-stage: embedding search finds CANDIDATES chunks quickly, then a
 # cross-encoder reads each (question, chunk) pair and reranks them. Embeddings only
@@ -45,7 +45,7 @@ class Source:
 
     @property
     def label(self) -> str:
-        return f"{self.filename}, p. {self.page}" if self.page else self.filename
+        return documents.location(self.filename, self.page)
 
 
 @dataclass

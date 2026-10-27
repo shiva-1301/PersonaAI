@@ -1,4 +1,4 @@
-"""Upload pipeline: save file -> extract -> chunk -> embed -> extract topics."""
+"""Upload pipeline: save file -> extract (OCR image pages) -> chunk -> embed -> extract topics."""
 
 import json
 import logging
@@ -6,22 +6,26 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from core import config, db, llm, vectorstore
-from core.documents import Page, chunk_pages, extract_pages
+from core import config, db, llm, ocr, vectorstore
+from core.documents import DocumentError, Page, chunk_pages, extract_pages, strip_repeated_lines
 
 log = logging.getLogger(__name__)
 
 # Characters of document text sent to the LLM for topic extraction (~6k tokens).
 TOPIC_TEXT_LIMIT = 24_000
 
-TOPIC_PROMPT = """Below is a student's study material. List the main syllabus topics it covers,
+TOPIC_PROMPT = """Below is a student's study material. List the main topics it actually teaches,
 the way they would appear in a course syllabus or exam paper.
 
 - 5 to 15 topics, in the order they appear.
 - Each topic is a short name (2-6 words), e.g. "Pig Latin data types", "Hive partitioning".
-- Specific enough to quiz on, but not individual facts.
+- Specific enough to quiz on, but not individual facts. Merge closely related small topics.
+- For each topic, say how much the material covers it:
+  "explained": definitions, explanation or examples that quiz questions could be written from;
+  "brief": only a sentence or two;
+  "listed_only": only named in a syllabus line, table of contents, agenda or title.
 
-Return JSON: {{"topics": ["...", "..."]}}
+Return JSON: {{"topics": [{{"name": "...", "coverage": "explained"}}]}}
 
 Material:
 {text}"""
@@ -29,10 +33,17 @@ Material:
 
 TOPICS_SCHEMA = {
     "type": "object",
-    "properties": {"topics": {"type": "array", "items": {"type": "string"}}},
+    "properties": {"topics": {"type": "array", "items": {
+        "type": "object",
+        "properties": {"name": {"type": "string"},
+                       "coverage": {"type": "string", "enum": ["explained", "brief", "listed_only"]}},
+        "required": ["name", "coverage"], "additionalProperties": False,
+    }}},
     "required": ["topics"],
     "additionalProperties": False,
 }
+# Fewer explained topics than this and "brief" ones are kept too, so short notes still get topics.
+MIN_EXPLAINED_TOPICS = 3
 
 
 @dataclass
@@ -43,6 +54,7 @@ class IngestResult:
     chunks: int
     topics: list[str] = field(default_factory=list)
     warning: str | None = None
+    image_pages_read: int = 0  # pages/slides that were only images, read by OCR
 
 
 def ingest(
@@ -54,9 +66,23 @@ def ingest(
     text but keeps its topics, so their quiz history survives.
     Raises documents.DocumentError for unreadable files."""
     filename = Path(filename).name
-    pages = extract_pages(filename, data)
+    all_pages = extract_pages(filename, data, keep_empty=True)
+    page_count = len(all_pages) if all_pages and all_pages[0].number else 0
+    scan = ocr.fill_image_pages(filename, data, all_pages)
+    if scan.pages_read:  # transcribed pages bring back headers/footers ("ANURAG UNIVERSITY")
+        for page, text in zip(all_pages, strip_repeated_lines([p.text for p in all_pages])):
+            page.text = text
+    pages = [p for p in all_pages if p.text.strip()]
+    if not pages:
+        raise DocumentError(f"No readable text in {filename}: it looks scanned or image-only"
+                            + ("" if ocr.enabled() else ", and image reading (OCR) is off") + ".")
+    unread = sum(1 for p in all_pages if ocr.needs_ocr(p))
+    notes = []
+    if scan.pages_failed:
+        notes.append(f"{len(scan.pages_failed)} image pages couldn't be read")
+    elif unread and not ocr.enabled():
+        notes.append(f"{unread} pages are images and weren't read (OCR is off)")
     chunks = chunk_pages(pages)
-    page_count = len(pages) if pages[0].number else 0
 
     path = _upload_path(user_id, filename, cohort_id)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -70,7 +96,8 @@ def ingest(
         vectorstore.add_chunks(user_id, document_id, filename, chunks, cohort_id)
         topics = [t["name"] for t in db.list_topics(user_id, document_id)]
         if topics:
-            return IngestResult(document_id, filename, len(pages), len(chunks), topics)
+            return IngestResult(document_id, filename, len(pages), len(chunks), topics,
+                                "; ".join(notes).capitalize() + "." if notes else None, scan.pages_read)
     else:
         document_id = db.add_document(
             user_id, filename, subject, page_count, cohort_id=cohort_id, subject_id=subject_id, unit=unit
@@ -82,13 +109,14 @@ def ingest(
             path.unlink(missing_ok=True)
             raise
 
-    result = IngestResult(document_id, filename, len(pages), len(chunks))
+    result = IngestResult(document_id, filename, len(pages), len(chunks), image_pages_read=scan.pages_read)
     try:
         result.topics = extract_topics(pages)
         db.set_topics(user_id, document_id, result.topics)
     except Exception as exc:
         log.warning("Topic extraction failed for %s: %s", filename, exc)
-        result.warning = "Couldn't extract topics automatically. You can add them by hand."
+        notes.append("couldn't extract topics automatically; you can add them by hand")
+    result.warning = "; ".join(notes).capitalize() + "." if notes else None
     return result
 
 
@@ -112,19 +140,26 @@ def extract_topics(pages: list[Page]) -> list[str]:
 
 
 def parse_topics(reply: str) -> list[str]:
-    """Accept {"topics": [...]}, a bare list, or either wrapped in ```json fences."""
+    """Accept {"topics": [...]}, a bare list, or either wrapped in ```json fences. Items are
+    names or {"name", "coverage"}: topics the material only lists (a syllabus line, an
+    agenda) are dropped, since quiz questions on them can't come from the notes; "brief"
+    ones are kept only if fewer than MIN_EXPLAINED_TOPICS topics are explained."""
     reply = re.sub(r"^```(?:json)?|```$", "", reply.strip(), flags=re.MULTILINE).strip()
     data = json.loads(reply)
     if isinstance(data, dict):
         data = data.get("topics", [])
     if not isinstance(data, list):
         return []
-    topics = []
+    named = []  # (name, coverage)
     for item in data:
         name = item.get("name") if isinstance(item, dict) else item
+        coverage = item.get("coverage", "explained") if isinstance(item, dict) else "explained"
         if isinstance(name, str) and name.strip():
-            topics.append(" ".join(name.split())[:80])
-    return topics[:15]
+            named.append((" ".join(name.split())[:80], coverage))
+    explained = [n for n, c in named if c == "explained"]
+    if len(explained) < MIN_EXPLAINED_TOPICS:
+        explained = [n for n, c in named if c in ("explained", "brief")]
+    return explained[:15]
 
 
 def _sample_text(pages: list[Page], limit: int) -> str:

@@ -49,6 +49,8 @@ GEMINI_FALLBACK_MODEL = _get("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash-lite")
 # The evaluation turns this off so every answer comes from the same model.
 LLM_FALLBACK = _get("LLM_FALLBACK", "true").lower() not in ("false", "0", "no")
 OLLAMA_MODEL = _get("OLLAMA_MODEL", "llama3.1:8b")
+# Read image-only pages (scanned PDFs, picture slides) with Claude on upload.
+OCR_ENABLED = _get("OCR_ENABLED", "true").lower() not in ("false", "0", "no")
 # Password of the "admin" account (class lists, cohorts, course notes). Empty = admin off.
 ADMIN_PASSWORD = _get("ADMIN_PASSWORD")
 OLLAMA_HOST = _get("OLLAMA_HOST", "http://localhost:11434")

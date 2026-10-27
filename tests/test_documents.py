@@ -3,7 +3,7 @@ import io
 import pytest
 
 from core.documents import (
-    DocumentError, Page, _looks_word_per_line, _strip_repeated_lines, chunk_pages, extract_pages,
+    DocumentError, Page, _looks_word_per_line, strip_repeated_lines, chunk_pages, extract_pages,
 )
 
 
@@ -39,7 +39,7 @@ def test_chunks_never_span_pages():
 def test_header_lines_removed_but_repeated_body_labels_kept():
     pages = [f"Prepared by K. Lecturer Page {i}\nTopic {i}\nAnswer:\nbody {i}\nAnswer:\nend {i}"
              for i in range(1, 6)]
-    cleaned = _strip_repeated_lines(pages, edge=1)
+    cleaned = strip_repeated_lines(pages, edge=1)
     assert all("Prepared by" not in p for p in cleaned)
     assert all(p.count("Answer:") == 2 for p in cleaned)
 

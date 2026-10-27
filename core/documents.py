@@ -1,12 +1,18 @@
-"""PDF/DOCX/TXT text extraction and chunking."""
+"""PDF/DOCX/PPTX/PPT/TXT text extraction and chunking."""
 
 import io
 import re
+import shutil
+import subprocess
+import tempfile
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
-SUPPORTED_TYPES = ("pdf", "docx", "txt")
+SUPPORTED_TYPES = ("pdf", "docx", "pptx", "ppt", "txt")
+# Types whose Page.number is a slide number rather than a page number.
+SLIDE_TYPES = ("pptx", "ppt")
+PPT_CONVERT_TIMEOUT_S = 180
 
 # all-MiniLM-L6-v2 only reads the first 256 word-pieces of a text (~190 words), so chunks
 # are kept under that; longer chunks would be silently truncated when embedded.
@@ -23,7 +29,7 @@ class DocumentError(ValueError):
 
 @dataclass
 class Page:
-    number: int | None  # 1-based PDF page; None for DOCX/TXT
+    number: int | None  # 1-based PDF page or PPTX slide; None for DOCX/TXT
     text: str
 
 
@@ -34,11 +40,13 @@ class Chunk:
     index: int  # position of the chunk within its document
 
 
-def extract_pages(filename: str, data: bytes) -> list[Page]:
-    """Extract text page by page. Raises DocumentError for unsupported or empty files."""
+def extract_pages(filename: str, data: bytes, keep_empty: bool = False) -> list[Page]:
+    """Extract text page by page (slide by slide for PPTX/PPT). Raises DocumentError for
+    unsupported or empty files. With keep_empty, pages without text are kept (so the
+    caller can OCR them) and a file with no text at all is not an error."""
     ext = Path(filename).suffix.lower().lstrip(".")
     if ext not in SUPPORTED_TYPES:
-        raise DocumentError(f"Unsupported file type '.{ext}'. Use PDF, DOCX or TXT.")
+        raise DocumentError(f"Unsupported file type '.{ext}'. Use PDF, DOCX, PPTX, PPT or TXT.")
     if not data:
         raise DocumentError(f"{filename} is empty.")
     try:
@@ -46,6 +54,10 @@ def extract_pages(filename: str, data: bytes) -> list[Page]:
             pages = _pdf_pages(data)
         elif ext == "docx":
             pages = _sections(_docx_text(data))
+        elif ext == "pptx":
+            pages = _slide_pages(data)
+        elif ext == "ppt":
+            pages = _slide_pages(ppt_to_pptx(data))
         else:
             pages = _sections(data.decode("utf-8", errors="replace"))
     except DocumentError:
@@ -53,12 +65,83 @@ def extract_pages(filename: str, data: bytes) -> list[Page]:
     except Exception as exc:
         raise DocumentError(f"Could not read {filename}: {exc}") from exc
 
+    if keep_empty:
+        return pages
     pages = [p for p in pages if p.text.strip()]
     if not pages:
         raise DocumentError(
-            f"No text found in {filename}. If it is a scanned PDF, use a text-based version."
+            f"No text found in {filename}. If it is scanned or made of images, its text "
+            "can't be read without OCR."
         )
     return pages
+
+
+def location(filename: str, page: int | None) -> str:
+    """How a source is cited: "notes.pdf, p. 4", "deck.pptx, slide 4" or just the file."""
+    if not page:
+        return filename
+    unit = "slide" if Path(filename).suffix.lower().lstrip(".") in SLIDE_TYPES else "p."
+    return f"{filename}, {unit} {page}"
+
+
+def _slide_pages(data: bytes) -> list[Page]:
+    """One page per slide: its text boxes, tables and speaker notes, in slide order."""
+    from pptx import Presentation
+
+    pages = []
+    for number, slide in enumerate(Presentation(io.BytesIO(data)).slides, 1):
+        parts = []
+        for shape in _all_shapes(slide.shapes):
+            if shape.has_text_frame:
+                parts.append(shape.text_frame.text)
+            elif getattr(shape, "has_table", False) and shape.has_table:
+                parts.extend(" | ".join(c.text for c in row.cells) for row in shape.table.rows)
+        if slide.has_notes_slide:
+            parts.append(slide.notes_slide.notes_text_frame.text)
+        pages.append(Page(number=number, text=clean_text("\n".join(p for p in parts if p.strip()))))
+    return pages
+
+
+def _all_shapes(shapes):
+    """Shapes on a slide, including those inside groups."""
+    for shape in shapes:
+        if shape.shape_type == 6:  # group
+            yield from _all_shapes(shape.shapes)
+        else:
+            yield shape
+
+
+def slide_images(data: bytes) -> dict[int, list[tuple[bytes, str]]]:
+    """Pictures on each slide of a PPTX: slide number -> [(image bytes, content type)]."""
+    from pptx import Presentation
+
+    images: dict[int, list[tuple[bytes, str]]] = {}
+    for number, slide in enumerate(Presentation(io.BytesIO(data)).slides, 1):
+        for shape in _all_shapes(slide.shapes):
+            if shape.shape_type == 13:  # picture
+                try:
+                    images.setdefault(number, []).append((shape.image.blob, shape.image.content_type))
+                except Exception:  # linked or unreadable picture
+                    continue
+    return images
+
+
+def ppt_to_pptx(data: bytes) -> bytes:
+    """Convert an old binary .ppt to .pptx with LibreOffice (python-pptx can't read .ppt)."""
+    soffice = shutil.which("soffice") or next(
+        (p for p in (r"C:\Program Files\LibreOffice\program\soffice.exe",
+                     r"C:\Program Files (x86)\LibreOffice\program\soffice.exe") if Path(p).exists()), None)
+    if not soffice:
+        raise DocumentError("Old .ppt files need LibreOffice to convert them. Save the file as .pptx instead.")
+    with tempfile.TemporaryDirectory() as tmp:
+        source = Path(tmp) / "slides.ppt"
+        source.write_bytes(data)
+        subprocess.run([soffice, "--headless", "--convert-to", "pptx", "--outdir", tmp, str(source)],
+                       check=True, capture_output=True, timeout=PPT_CONVERT_TIMEOUT_S)
+        converted = Path(tmp) / "slides.pptx"
+        if not converted.exists():
+            raise DocumentError("LibreOffice couldn't convert the .ppt file. Save it as .pptx instead.")
+        return converted.read_bytes()
 
 
 def _pdf_pages(data: bytes) -> list[Page]:
@@ -73,7 +156,7 @@ def _pdf_pages(data: bytes) -> list[Page]:
         if _looks_word_per_line(text):
             text = page.extract_text(extraction_mode="layout") or text
         texts.append(text)
-    texts = _strip_repeated_lines(texts)
+    texts = strip_repeated_lines(texts)
     return [Page(number=i + 1, text=clean_text(t)) for i, t in enumerate(texts)]
 
 
@@ -111,7 +194,7 @@ def _looks_word_per_line(text: str) -> bool:
     return words / len(lines) < 1.5
 
 
-def _strip_repeated_lines(pages: list[str], edge: int = 3) -> list[str]:
+def strip_repeated_lines(pages: list[str], edge: int = 3) -> list[str]:
     """Remove headers/footers: lines in the top or bottom `edge` lines of a page that
     repeat on most pages (ignoring page numbers). Body lines like "Answer:" are kept."""
     if len(pages) < 3:
