@@ -275,3 +275,30 @@ def test_study_plan_timetable_for_cohort_subjects(tmp_path, monkeypatch):
     assert [e["subject"] for e in plan.exams] == ["DBMS", "Operating Systems"]
     assert [e["exam_date"] for e in db.list_exams(uid)] == [e["date"] for e in plan.exams]
     assert "DBMS · Study:" in text(at) and "Next exam: DBMS" in text(at)
+
+
+def test_cohort_student_sees_course_notes_and_quizzes_by_unit(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "DB_PATH", tmp_path / "app.db")
+    from core import db, rag
+    monkeypatch.setattr(rag, "warm_up", lambda: None)
+    db.init_db()
+    db.import_students([{"hall_ticket": "22B81A0501", "name": "Ananya Rao", "department": "CSE", "year": "3"}])
+    admin = db.get_or_create_user("admin")["id"]
+    cse = db.get_or_create_cohort("CSE", "3")
+    dbms, os_ = db.add_subject(cse, "DBMS"), db.add_subject(cse, "OS")
+    for name, subject, unit in (("er.pdf", dbms, "Unit 1"), ("sql.pdf", dbms, "Unit 2"), ("cpu.pdf", os_, "Unit 1")):
+        doc = db.add_document(admin, name, None, 5, cohort_id=cse, subject_id=subject, unit=unit)
+        db.set_topics(admin, doc, [f"{name} topic"])
+    uid = db.find_user("22B81A0501")["id"]
+
+    at = signed_in("notes_qa", uid)
+    at.session_state.cohort_id = cse
+    at.run()
+    assert not at.exception
+    assert "Course notes (3)" in text(at) and "My notes (0)" in text(at)
+    assert [s.label for s in at.selectbox] == ["Subject"]  # personal uploads pick a cohort subject
+
+    at = signed_in("quiz", uid).run()
+    assert not at.exception
+    at.selectbox[0].select("DBMS").run()
+    assert at.multiselect[0].options == ["Unit 1 · er.pdf", "Unit 2 · sql.pdf"]

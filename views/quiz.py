@@ -40,11 +40,21 @@ def setup() -> None:
 
     left, right = st.columns([1.8, 1], gap="large")
     with left, card("setup"):
-        section("Create a quiz", "Pick what to cover, how many questions, and how to choose them.")
-        names = {d["id"]: d["filename"] for d in documents}
-        c1, c2 = st.columns(2)
-        doc_ids = c1.multiselect("Documents", list(names), format_func=names.get, placeholder="All documents")
-        available = [t for t in topics if not doc_ids or t["document_id"] in doc_ids]
+        section("Create a quiz", "Pick a subject and units, how many questions, and how to choose them.")
+        subjects = sorted({d["subject_name"] for d in documents if d["subject_name"]}, key=str.lower)
+        c0, c1, c2 = st.columns([1, 1.2, 1.2])
+        subject = c0.selectbox("Subject", ["All subjects", *subjects]) if subjects else "All subjects"
+        in_subject = [d for d in documents if subject == "All subjects" or d["subject_name"] == subject]
+        # Course notes are labelled by unit; the student's own notes are marked as theirs.
+        names = {
+            d["id"]: (f"{d['unit']} · {d['filename']}" if d["unit"] else d["filename"])
+            + ("" if d["shared"] else " (my notes)")
+            for d in sorted(in_subject, key=lambda d: (d["unit"] or "~", d["filename"]))
+        }
+        doc_ids = c1.multiselect("Units / documents", list(names), format_func=names.get,
+                                 placeholder="All units")
+        scope = set(doc_ids or names)
+        available = [t for t in topics if t["document_id"] in scope]
         topic_names = {t["id"]: t["name"] for t in available}
         topic_ids = c2.multiselect(
             "Topics", list(topic_names), format_func=topic_names.get, placeholder="All topics",
