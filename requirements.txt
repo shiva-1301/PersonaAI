@@ -3,6 +3,7 @@ chromadb
 sentence-transformers
 pypdf
 python-docx
+anthropic
 google-genai
 ollama
 python-dotenv

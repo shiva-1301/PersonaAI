@@ -36,12 +36,15 @@ def _get(key: str, default: str = "") -> str:
     return default
 
 
-LLM_PROVIDER = _get("LLM_PROVIDER", "gemini").lower()
+LLM_PROVIDER = _get("LLM_PROVIDER", "claude").lower()
+# CLAUDE_API_KEY is accepted as an older name for the same key.
+ANTHROPIC_API_KEY = _get("ANTHROPIC_API_KEY") or _get("CLAUDE_API_KEY")
+ANTHROPIC_MODEL = _get("ANTHROPIC_MODEL", "claude-sonnet-5-5")
 GEMINI_API_KEY = _get("GEMINI_API_KEY")
 GEMINI_MODEL = _get("GEMINI_MODEL", "gemini-3.8-flash")
 # Lighter model tried when the main one is overloaded (503) before falling back to Ollama.
 GEMINI_FALLBACK_MODEL = _get("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash-lite")
-# When a model fails, try the next one (main Gemini -> lighter Gemini -> Ollama).
+# When a model fails, try the next one (Claude -> main Gemini -> lighter Gemini -> Ollama).
 # The evaluation turns this off so every answer comes from the same model.
 LLM_FALLBACK = _get("LLM_FALLBACK", "true").lower() not in ("false", "0", "no")
 OLLAMA_MODEL = _get("OLLAMA_MODEL", "llama3.1:8b")

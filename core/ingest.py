@@ -27,6 +27,14 @@ Material:
 {text}"""
 
 
+TOPICS_SCHEMA = {
+    "type": "object",
+    "properties": {"topics": {"type": "array", "items": {"type": "string"}}},
+    "required": ["topics"],
+    "additionalProperties": False,
+}
+
+
 @dataclass
 class IngestResult:
     document_id: int
@@ -89,7 +97,7 @@ def remove(user_id: int, document_id: int) -> None:
 
 def extract_topics(pages: list[Page]) -> list[str]:
     text = _sample_text(pages, TOPIC_TEXT_LIMIT)
-    reply = llm.generate(TOPIC_PROMPT.format(text=text), json_mode=True)
+    reply = llm.generate(TOPIC_PROMPT.format(text=text), json_mode=True, schema=TOPICS_SCHEMA)
     topics = parse_topics(reply)
     if not topics:
         raise ValueError(f"No topics in LLM reply: {reply[:200]!r}")

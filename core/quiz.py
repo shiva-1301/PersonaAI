@@ -66,6 +66,21 @@ or more than one is, answer "X".
 Return JSON: {{"answers": [{{"n": 1, "answer": "B"}}]}}"""
 
 
+def _object(**props) -> dict:
+    return {"type": "object", "properties": props, "required": list(props), "additionalProperties": False}
+
+
+# The fixed JSON structures above, as schemas Claude's API enforces.
+_STR = {"type": "string"}
+QUIZ_SCHEMA = _object(questions={"type": "array", "items": _object(
+    topic=_STR, question=_STR, options={"type": "array", "items": _STR},
+    answer={"type": "string", "enum": list(LETTERS)}, explanation=_STR, source=_STR,
+)})
+VERIFY_SCHEMA = _object(answers={"type": "array", "items": _object(
+    n={"type": "integer"}, answer={"type": "string", "enum": list(LETTERS) + ["X"]},
+)})
+
+
 class QuizError(RuntimeError):
     """The quiz couldn't be generated (no topics, no material, or the LLM kept failing)."""
 
@@ -127,7 +142,7 @@ def generate(user_id: int, allocation: dict[int, int]) -> list[Question]:
         prompt = build_prompt(hits, topics, needed, avoid=[q.question for q in questions])
         try:
             reply, model = llm.generate_with_model(
-                prompt, system=SYSTEM_PROMPT, json_mode=True, temperature=0.7
+                prompt, system=SYSTEM_PROMPT, json_mode=True, temperature=0.7, schema=QUIZ_SCHEMA
             )
             new = parse_questions(reply, topics, hits, needed)
             if new and model.split(" / ")[0] in VERIFY_PROVIDERS:
@@ -159,6 +174,7 @@ def verify(questions: list[Question], hits) -> list[Question]:
         VERIFY_PROMPT.format(excerpts=_excerpts(hits), questions=listing),
         json_mode=True,
         temperature=0,
+        schema=VERIFY_SCHEMA,
     )
     try:
         data = json.loads(re.sub(r"^```(?:json)?|```$", "", reply.strip(), flags=re.M).strip())

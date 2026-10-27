@@ -112,9 +112,11 @@ if attempts:
 
 # ---- System check (the original LLM connection test) ----
 with st.expander("System check: AI connection", icon=":material/settings:"):
+    providers = ["claude", "gemini", "ollama"]
     provider = st.radio(
-        "Provider", ["gemini", "ollama"],
-        index=0 if config.LLM_PROVIDER == "gemini" else 1, horizontal=True,
+        "Provider", providers,
+        index=providers.index(config.LLM_PROVIDER) if config.LLM_PROVIDER in providers else 0,
+        horizontal=True,
     )
     if st.button("Send test message"):
         with st.spinner(f"Asking {llm.active_model(provider)}..."):
