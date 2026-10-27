@@ -125,9 +125,36 @@ Upload PDF/DOCX/TXT
 py -3.12 -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-# put GEMINI_API_KEY (and optional settings) in .env
+# put your settings in .env (see below)
 streamlit run app.py
 ```
+
+`.env` settings:
+
+| Setting | Purpose |
+|---|---|
+| `ANTHROPIC_API_KEY` | Claude, the main AI model |
+| `ANTHROPIC_MODEL` | Claude model (default `claude-sonnet-5-5`) |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` | First fallback |
+| `OLLAMA_MODEL`, `OLLAMA_HOST` | Offline fallback (local Ollama) |
+| `LLM_PROVIDER` | Which provider to try first: `claude` (default), `gemini` or `ollama` |
+| `ADMIN_PASSWORD` | Password of the `admin` account; leave empty to turn admin sign-in off |
+
+If a model fails, the next is tried: Claude → Gemini → lighter Gemini → Ollama. Each gets a
+short timeout and at most one retry, and every failure is logged with its status code in
+`data/personaai.log`.
+
+### Accounts
+
+1. Sign in as `admin` with `ADMIN_PASSWORD`.
+2. **Students & cohorts:** import a class list CSV (`hall_ticket, name, department, year`; a sample
+   is downloadable on the page). Each department + year becomes a cohort.
+3. **Course notes:** add the cohort's subjects, then upload notes per subject and unit. Every
+   student in the cohort sees them.
+4. Students sign in with their hall ticket number. On the first sign-in they choose a password
+   (the admin can reset it). They can also upload private notes of their own.
+5. On **Study Plan**, a student enters their exam timetable; the plan splits each day between
+   subjects by weakness and how close each exam is.
 
 Run the tests with `pytest`.
 
