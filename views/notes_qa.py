@@ -37,7 +37,8 @@ def process_uploads(files, subject: str, subject_id: int | None = None) -> list[
             continue
         pages = f"{result.pages} pages" if result.pages else "text"
         messages.append(
-            ("success", f"{file.name}: {pages}, {result.chunks} chunks, {len(result.topics)} topics")
+            ("success", f"{file.name}: {pages}, {result.chunks} chunks, {len(result.topics)} topics"
+                        + (f", {result.image_pages_read} image pages read" if result.image_pages_read else ""))
         )
         if result.warning:
             messages.append(("warning", f"{file.name}: {result.warning}"))
@@ -136,7 +137,7 @@ with docs_col:
                 doc_line(doc, db.list_topics(user_id, doc["id"]))
 
     with card("upload"):
-        section("Add your own notes", "Private to you. PDF, DOCX or TXT. Re-uploading a file with the "
+        section("Add your own notes", "Private to you. PDF, Word, PowerPoint or TXT. Re-uploading a file with the "
                 "same name updates it.")
         with st.form("upload", clear_on_submit=True, border=False):
             files = st.file_uploader(

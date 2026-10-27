@@ -306,5 +306,9 @@ def test_cohort_student_sees_course_notes_and_quizzes_by_unit(tmp_path, monkeypa
 
     at = signed_in("quiz", uid).run()
     assert not at.exception
+    # Every chapter of every subject is listed; a subject filter narrows it to that subject's units.
+    assert at.multiselect[0].label == "Chapters"
+    assert at.multiselect[0].options == ["DBMS · Unit 1", "DBMS · Unit 2", "OS · Unit 1"]
     at.selectbox[0].select("DBMS").run()
-    assert at.multiselect[0].options == ["Unit 1 · er.pdf", "Unit 2 · sql.pdf"]
+    assert at.multiselect[0].options == ["Unit 1", "Unit 2"]
+

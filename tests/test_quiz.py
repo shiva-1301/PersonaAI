@@ -184,3 +184,18 @@ def test_quiz_schema_limits_topic_and_source_tags():
     assert item["topic"]["enum"] == ["T1", "T2"]
     assert item["source"]["enum"] == ["S1", "S2", "S3"]
     assert item["answer"]["enum"] == ["A", "B", "C", "D"]
+
+
+def test_chapters_merge_files_of_one_unit_and_order_units_by_number():
+    docs = [
+        {"id": 1, "subject_name": "NLP", "unit": "Unit 10", "shared": 1, "filename": "a.pdf"},
+        {"id": 2, "subject_name": "NLP", "unit": "Unit 2", "shared": 1, "filename": "b.pdf"},
+        {"id": 3, "subject_name": "NLP", "unit": "Unit 2", "shared": 1, "filename": "b-slides.pptx"},
+        {"id": 4, "subject_name": "NLP", "unit": "Lab programs", "shared": 1, "filename": "c.docx"},
+        {"id": 5, "subject_name": "NLP", "unit": None, "shared": 0, "filename": "mine.txt"},
+        {"id": 6, "subject_name": "Big Data", "unit": "Unit 3", "shared": 1, "filename": "pig.pptx"},
+    ]
+    assert quiz.chapter_options(docs, with_subject=True) == {
+        "Big Data · Unit 3": [6], "NLP · Unit 2": [2, 3], "NLP · Unit 10": [1],
+        "NLP · Lab programs": [4], "NLP · mine.txt (my notes)": [5]}
+    assert list(quiz.chapter_options(docs[:2], with_subject=False)) == ["Unit 2", "Unit 10"]

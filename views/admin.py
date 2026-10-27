@@ -22,7 +22,8 @@ SAMPLE_CSV = (
     "22B81A0502,Rahul Varma,CSE,3\n"
     "22B81A0401,Sneha Reddy,ECE,3\n"
 )
-UNITS = [f"Unit {i}" for i in range(1, 7)]
+# Numbered units, plus supporting material that belongs to no single unit.
+UNITS = [f"Unit {i}" for i in range(1, 7)] + ["Lab programs", "Viva questions", "Supplementary"]
 
 cohorts = db.list_cohorts()
 labels = {c["id"]: cohort_label(c["id"]) for c in cohorts}
@@ -151,7 +152,8 @@ with notes_tab:
                     st.rerun()
 
     with right, card("share_notes"):
-        section("Share notes", "PDF, DOCX or TXT. Uploading a file with the same name again updates it.")
+        section("Share notes", "PDF, Word or PowerPoint. Pages that are only images are read too. "
+                "Uploading a file with the same name again updates it.")
         if not subjects:
             callout("Add a subject first.", "blue", "👈")
         else:
@@ -180,7 +182,8 @@ with notes_tab:
                         except Exception as exc:
                             messages.append(("error", f"{f.name}: processing failed ({exc})"))
                             continue
-                        messages.append(("success", f"{f.name}: {result.chunks} chunks, {len(result.topics)} topics"))
+                        read = f", {result.image_pages_read} image pages read" if result.image_pages_read else ""
+                        messages.append(("success", f"{f.name}: {result.chunks} chunks, {len(result.topics)} topics{read}"))
                         if result.warning:
                             messages.append(("warning", f"{f.name}: {result.warning}"))
                     progress.empty()

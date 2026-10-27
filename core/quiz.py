@@ -11,7 +11,7 @@ import random
 import re
 from dataclasses import dataclass
 
-from core import db, llm, rag, vectorstore
+from core import db, documents, llm, rag, vectorstore
 
 log = logging.getLogger(__name__)
 
@@ -100,7 +100,7 @@ class Question:
     options: list[str]
     answer: int  # index into options
     explanation: str
-    source: str | None = None  # "file, p. N"
+    source: str | None = None  # "file, p. N" / "file, slide N"
 
     @property
     def correct_option(self) -> str:
@@ -117,6 +117,29 @@ class Result:
     @property
     def percent(self) -> int:
         return round(100 * self.score / self.total) if self.total else 0
+
+
+def _unit_order(unit: str) -> tuple:
+    """Numbered units first, in number order ("Unit 2" before "Unit 10"), then the rest."""
+    match = re.search(r"\d+", unit)
+    return (0, int(match.group()), "") if match else (1, 0, unit.lower())
+
+
+def chapter_options(documents, with_subject: bool) -> dict[str, list[int]]:
+    """Quiz scope choices: chapter label -> document ids, ordered by subject, then unit.
+    A chapter is one unit of a subject's course notes with all its files (e.g. notes and
+    slides together); notes without a unit, and the student's own notes, are listed by file."""
+    groups: dict[tuple, list[int]] = {}
+    for d in documents:
+        subject = d["subject_name"] or ""
+        prefix = f"{subject} · " if with_subject and subject else ""
+        if d["shared"] and d["unit"]:
+            key = (subject.lower(), 0, _unit_order(d["unit"]), prefix + d["unit"])
+        else:
+            mine = "" if d["shared"] else " (my notes)"
+            key = (subject.lower(), 1, (2, 0, d["filename"].lower()), prefix + d["filename"] + mine)
+        groups.setdefault(key, []).append(d["id"])
+    return {key[3]: ids for key, ids in sorted(groups.items())}
 
 
 def even_allocation(topic_ids: list[int], n: int) -> dict[int, int]:
@@ -197,7 +220,7 @@ def verify(questions: list[Question], hits) -> list[Question]:
 
 def _excerpts(hits) -> str:
     return "\n\n".join(
-        f"[S{i}] ({h.filename}{f', page {h.page}' if h.page else ''})\n{h.text}"
+        f"[S{i}] ({documents.location(h.filename, h.page)})\n{h.text}"
         for i, h in enumerate(hits, 1)
     )
 
@@ -286,7 +309,7 @@ def _validate(item, tags: dict[str, int], topics: dict, hits) -> Question | None
     match = re.search(r"\d+", str(item.get("source", "")))
     if match and 1 <= int(match.group()) <= len(hits):
         hit = hits[int(match.group()) - 1]
-        source = f"{hit.filename}, p. {hit.page}" if hit.page else hit.filename
+        source = documents.location(hit.filename, hit.page)
 
     # Shuffle so the correct answer isn't always where the model likes to put it.
     correct = options[answer]

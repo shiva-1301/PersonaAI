@@ -40,22 +40,14 @@ def setup() -> None:
 
     left, right = st.columns([1.8, 1], gap="large")
     with left, card("setup"):
-        section("Create a quiz", "Pick a subject and units, how many questions, and how to choose them.")
+        section("Create a quiz", "Pick chapters, how many questions, and how to choose them.")
         subjects = sorted({d["subject_name"] for d in documents if d["subject_name"]}, key=str.lower)
-        # Unit labels are long ("Unit 3 · BIG_DATA_UNIT-III.pdf"), so units get most of a row
-        # and topics a row of their own; in three columns the chips were cut to "4 · ...".
         c0, c1 = st.columns([1, 2.2])
         subject = c0.selectbox("Subject", ["All subjects", *subjects]) if subjects else "All subjects"
         in_subject = [d for d in documents if subject == "All subjects" or d["subject_name"] == subject]
-        # Course notes are labelled by unit; the student's own notes are marked as theirs.
-        names = {
-            d["id"]: (f"{d['unit']} · {d['filename']}" if d["unit"] else d["filename"])
-            + ("" if d["shared"] else " (my notes)")
-            for d in sorted(in_subject, key=lambda d: (d["unit"] or "~", d["filename"]))
-        }
-        doc_ids = c1.multiselect("Units / documents", list(names), format_func=names.get,
-                                 placeholder="All units")
-        scope = set(doc_ids or names)
+        chapters = quiz.chapter_options(in_subject, with_subject=subject == "All subjects")
+        picked = c1.multiselect("Chapters", list(chapters), placeholder="All chapters")
+        scope = {doc_id for label in (picked or chapters) for doc_id in chapters[label]}
         available = [t for t in topics if t["document_id"] in scope]
         topic_names = {t["id"]: t["name"] for t in available}
         topic_ids = st.multiselect(
