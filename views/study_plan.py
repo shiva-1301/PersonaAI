@@ -206,7 +206,10 @@ def show_plan(plan_id: int, plan: planner.Plan) -> None:
                 "after a few quizzes so it reflects your latest weak topics.", "gray", "🕑")
 
     # Legend for the chips below (colour is never the only cue: every chip has an icon + label).
-    chips([(f"{icon} {label}", tone) for icon, label, tone in KINDS.values()] + [("⚑ Weak topic: priority", "critical")])
+    # Timetable plans have exam days but no mock exam; single-exam plans the reverse.
+    unused = "mock" if plan.exams else "exam"
+    chips([(f"{icon} {label}", tone) for kind, (icon, label, tone) in KINDS.items() if kind != unused]
+          + [("⚑ Weak topic: priority", "critical")])
 
     indices = range(len(plan.days))
     earlier = [i for i in indices if plan.days[i].date < today.isoformat()]

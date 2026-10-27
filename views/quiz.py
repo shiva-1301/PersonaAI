@@ -42,7 +42,9 @@ def setup() -> None:
     with left, card("setup"):
         section("Create a quiz", "Pick a subject and units, how many questions, and how to choose them.")
         subjects = sorted({d["subject_name"] for d in documents if d["subject_name"]}, key=str.lower)
-        c0, c1, c2 = st.columns([1, 1.2, 1.2])
+        # Unit labels are long ("Unit 3 · BIG_DATA_UNIT-III.pdf"), so units get most of a row
+        # and topics a row of their own; in three columns the chips were cut to "4 · ...".
+        c0, c1 = st.columns([1, 2.2])
         subject = c0.selectbox("Subject", ["All subjects", *subjects]) if subjects else "All subjects"
         in_subject = [d for d in documents if subject == "All subjects" or d["subject_name"] == subject]
         # Course notes are labelled by unit; the student's own notes are marked as theirs.
@@ -56,7 +58,7 @@ def setup() -> None:
         scope = set(doc_ids or names)
         available = [t for t in topics if t["document_id"] in scope]
         topic_names = {t["id"]: t["name"] for t in available}
-        topic_ids = c2.multiselect(
+        topic_ids = st.multiselect(
             "Topics", list(topic_names), format_func=topic_names.get, placeholder="All topics",
         )
         c1, c2 = st.columns(2)
