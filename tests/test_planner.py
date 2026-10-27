@@ -68,11 +68,20 @@ def test_short_plans(days, finals):
     assert studied == {1, 2, 3}
 
 
+def test_too_little_time_puts_neighbouring_topics_in_one_session():
+    plan = build_plan(STATS, TODAY + timedelta(days=2), 1, today=TODAY)  # 10 topics, 4 slots
+    study = [t for d in plan.days for t in d.tasks if t.kind == "study"]
+    assert len(study) == 4 and all(d.hours <= 1 for d in plan.days)
+    assert study[0].title == "Study: Topic 1, Topic 2, Topic 3"  # syllabus order kept
+    assert study[0].topic_id == 1  # the weakest topic of the session, so it is flagged weak
+    assert set(plan.topic_hours) == {s.topic_id for s in STATS}
+    assert sum(plan.topic_hours.values()) == pytest.approx(2.0, abs=0.05)
+    assert plan.grouped_topics == 10
+
+
 def test_errors():
     with pytest.raises(PlanError, match="after today"):
         build_plan(STATS, TODAY, 3, today=TODAY)
-    with pytest.raises(PlanError, match="Not enough time"):
-        build_plan(STATS, TODAY + timedelta(days=2), 1, today=TODAY)  # 10 topics, 4 slots
     with pytest.raises(PlanError, match="No topics"):
         build_plan([], TODAY + timedelta(days=5), 3, today=TODAY)
 

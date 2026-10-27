@@ -204,6 +204,10 @@ def show_plan(plan_id: int, plan: planner.Plan) -> None:
     elif plan.generated_on < today.isoformat():
         callout(f"This plan was made on {date.fromisoformat(plan.generated_on):%d %b}. Regenerate it "
                 "after a few quizzes so it reflects your latest weak topics.", "gray", "🕑")
+    if plan.grouped_topics:
+        callout(f"There isn't time for a session per topic, so {plan.grouped_topics} topics share sessions "
+                "with the topics next to them. Plan more hours per day to give each its own time.",
+                "orange", "⏳")
 
     # Legend for the chips below (colour is never the only cue: every chip has an icon + label).
     # Timetable plans have exam days but no mock exam; single-exam plans the reverse.

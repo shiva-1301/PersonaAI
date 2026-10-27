@@ -2,7 +2,8 @@
 
 The plan is built by rules, not the LLM, so its guarantees hold every time:
   1. Study time is split across topics by weight: weak 3, untested/learning 2,
-     strong 1. Every topic gets at least one 30-minute slot.
+     strong 1. Every topic gets at least one 30-minute slot. When there are more topics
+     than slots, neighbouring topics share a slot instead (see _group_topics).
   2. Each topic's time is a first study session (~60%) plus a review session with a
      short quiz (~40%), scheduled at least REVIEW_GAP_DAYS later (spaced practice).
   3. The last days before the exam are a mock-quiz day and a weak-topic revision day.
@@ -17,8 +18,7 @@ after its exam.
 """
 
 import json
-import math
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import date, timedelta
 
 from core import db, memory
@@ -64,6 +64,7 @@ class Plan:
     topic_hours: dict[int, float]  # topic_id -> planned hours
     document_ids: list[int] | None = None  # scope to reuse when regenerating; None = all
     exams: list[dict] | None = None  # timetable plans: [{"subject", "date", "time"}]
+    grouped_topics: int = 0  # topics that share a session with neighbours (too little time)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -77,7 +78,7 @@ class Plan:
         topic_hours = {int(k): v for k, v in data["topic_hours"].items()}
         return cls(
             data["exam_date"], data["hours_per_day"], data["generated_on"], days, topic_hours,
-            data.get("document_ids"), data.get("exams"),
+            data.get("document_ids"), data.get("exams"), data.get("grouped_topics", 0),
         )
 
     def day(self, on: date) -> Day | None:
@@ -103,10 +104,12 @@ def build_plan(
 
     # Syllabus order: as the topics appear in each document.
     topics = sorted(stats, key=lambda s: (s.document_id or 0, s.topic_id))
-    slots = _allocate_slots(topics, study_days * slots_per_day, study_days, hours_per_day)
+    total = study_days * slots_per_day
+    sessions, members = _group_topics(topics, total)
+    slots = _allocate_slots(sessions, total)
 
     days = [Day((today + timedelta(days=i)).isoformat()) for i in range(n_days)]
-    _schedule(days[:study_days], topics, slots, slots_per_day)
+    _schedule(days[:study_days], sessions, slots, slots_per_day)
     for day, kind in zip(days[study_days:], final_kinds):
         day.tasks = _final_day_tasks(kind, topics, hours_per_day)
 
@@ -115,20 +118,40 @@ def build_plan(
         hours_per_day=hours_per_day,
         generated_on=today.isoformat(),
         days=days,
-        topic_hours={t.topic_id: slots[t.topic_id] * SLOT_HOURS for t in topics},
+        topic_hours=_hours_per_topic(slots, members),
+        grouped_topics=_count_grouped(members),
     )
 
 
-def _allocate_slots(
-    topics: list[TopicStat], total: int, study_days: int, hours_per_day: float
-) -> dict[int, int]:
+def _group_topics(topics: list[TopicStat], n: int) -> tuple[list[TopicStat], dict[int, list[int]]]:
+    """Fit topics (in syllabus order) into at most n sessions. With more topics than
+    sessions, neighbouring topics share one: it is named after all of them and weighted
+    like its weakest member, whose id it takes (so a weak topic is still flagged).
+    Returns the sessions and {session id: ids of the topics in it}."""
+    if len(topics) <= n:
+        return topics, {t.topic_id: [t.topic_id] for t in topics}
+    size, extra = divmod(len(topics), n)
+    sessions, members, start = [], {}, 0
+    for i in range(n):
+        part = topics[start:start + size + (i < extra)]
+        start += len(part)
+        weakest = max(part, key=lambda t: (WEIGHTS[t.status], -(t.accuracy or 0)))
+        sessions.append(replace(weakest, name=", ".join(t.name for t in part)))
+        members[weakest.topic_id] = [t.topic_id for t in part]
+    return sessions, members
+
+
+def _hours_per_topic(slots: dict[int, int], members: dict[int, list[int]]) -> dict[int, float]:
+    """Planned hours per topic; a shared session's time is split between its topics."""
+    return {tid: round(slots[sid] * SLOT_HOURS / len(ids), 2) for sid, ids in members.items() for tid in ids}
+
+
+def _count_grouped(members: dict[int, list[int]]) -> int:
+    return sum(len(ids) for ids in members.values() if len(ids) > 1)
+
+
+def _allocate_slots(topics: list[TopicStat], total: int) -> dict[int, int]:
     """Split `total` slots by weight (largest remainder), at least one per topic."""
-    if total < len(topics):
-        needed = math.ceil(len(topics) * SLOT_HOURS / max(study_days, 1) / SLOT_HOURS) * SLOT_HOURS
-        raise PlanError(
-            f"Not enough time to cover all {len(topics)} topics at {hours_per_day} h/day. "
-            f"Plan at least {needed} h/day, or pick fewer documents."
-        )
     slots = {t.topic_id: 1 for t in topics}
     remaining = total - len(topics)
     weights = {t.topic_id: WEIGHTS[t.status] for t in topics}
@@ -309,24 +332,25 @@ def build_exam_plan(
         for s, n in given.items():
             capacity[s][i] = n
 
-    topic_hours = {}
+    topic_hours, grouped = {}, 0
     for e in exams:
         caps = capacity[e.subject]
-        subject_topics = topics[e.subject]
-        if sum(caps) < len(subject_topics):
+        if not sum(caps):
             raise PlanError(
-                f"Not enough time before the {e.subject} exam on {e.date:%d %b} to cover its "
-                f"{len(subject_topics)} topics at {hours_per_day:g} h/day. Plan more hours per day."
+                f"No study time left before the {e.subject} exam on {e.date:%d %b} at "
+                f"{hours_per_day:g} h/day. Plan more hours per day, or move the exam later."
             )
+        sessions, members = _group_topics(topics[e.subject], sum(caps))
         study_idx = [i for i, n in enumerate(caps) if n]
-        slots = _allocate_slots(subject_topics, sum(caps), len(study_idx), hours_per_day)
+        slots = _allocate_slots(sessions, sum(caps))
         scratch = [Day(days[i].date) for i in study_idx]
-        _schedule(scratch, subject_topics, slots, [caps[i] for i in study_idx])
+        _schedule(scratch, sessions, slots, [caps[i] for i in study_idx])
         for i, part in zip(study_idx, scratch):
             for task in part.tasks:
                 task.subject = e.subject
             days[i].tasks.extend(part.tasks)
-        topic_hours.update({t.topic_id: slots[t.topic_id] * SLOT_HOURS for t in subject_topics})
+        topic_hours.update(_hours_per_topic(slots, members))
+        grouped += _count_grouped(members)
 
     return Plan(
         exam_date=exams[-1].date.isoformat(),
@@ -335,6 +359,7 @@ def build_exam_plan(
         days=days,
         topic_hours=topic_hours,
         exams=[{"subject": e.subject, "date": e.date.isoformat(), "time": e.time} for e in exams],
+        grouped_topics=grouped,
     )
 
 

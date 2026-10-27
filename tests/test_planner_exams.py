@@ -70,8 +70,20 @@ def test_timetable_errors():
         plan(exams=[Exam("Maths", TODAY + timedelta(days=5))])
     with pytest.raises(PlanError, match="only once"):
         plan(exams=[Exam("DBMS", TODAY + timedelta(days=5)), Exam("dbms", TODAY + timedelta(days=7))])
-    with pytest.raises(PlanError, match="Not enough time before the DBMS exam"):
-        plan(exams=[Exam("DBMS", TODAY + timedelta(days=1))], hours=0.5)
+    with pytest.raises(PlanError, match="No study time left before the DBMS exam"):
+        plan(exams=[Exam("DBMS", TODAY + timedelta(days=1))], hours=0.5)  # today is its revision day
+
+
+def test_a_crowded_timetable_still_gets_a_plan():
+    """Many topics, exams two days apart: neighbouring topics share sessions instead of failing."""
+    subjects = ["NLP", "DL", "BD", "CS", "NS"]
+    stats = [stat(100 * i + j, s) for i, s in enumerate(subjects) for j in range(40)]
+    exams = [Exam(s, TODAY + timedelta(days=2 * (i + 1))) for i, s in enumerate(subjects)]
+    p = plan(stats, exams, hours=3)
+    assert p.grouped_topics > 0 and set(p.topic_hours) == {s.topic_id for s in stats}
+    assert all(d.hours <= 3 for d in p.days)
+    for e in exams:
+        assert any(t.kind == "study" for _, t in tasks_of(p, e.subject))
 
 
 def test_notes_without_a_subject_are_planned_as_general():
