@@ -151,12 +151,14 @@ short timeout and at most one retry, and every failure is logged with its status
    is downloadable on the page). Each department + year becomes a cohort.
 3. **Course notes:** add the cohort's subjects, then upload notes per subject and unit. Every
    student in the cohort sees them.
-4. Students sign in with their hall ticket number. On the first sign-in they choose a password
-   (the admin can reset it). They can also upload private notes of their own.
+4. Under **Students**, create sign-up codes and hand them out (they are shown once). A student
+   signs in with their hall ticket number and, the first time, their code plus a new password.
+   **Reset password** issues a new code. Five failed sign-ins lock the account for 5 minutes.
+   Students can also upload private notes of their own.
 5. On **Study Plan**, a student enters their exam timetable; the plan splits each day between
    subjects by weakness and how close each exam is.
 
-Run the tests with `pytest`.
+Run the tests with `pytest`. The screen test (`tests/e2e_screens.py`, needs `playwright`) drives a running app in headless Chromium; see its docstring.
 
 ---
 
