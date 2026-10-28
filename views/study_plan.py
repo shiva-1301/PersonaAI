@@ -6,7 +6,7 @@ from html import escape
 import pandas as pd
 import streamlit as st
 
-from core import db, memory, planner
+from core import db, ics, memory, planner
 from ui.shell import require_login
 from ui.styles import Stat, TONES, callout, card, chip, chips, html, page_header, section, stat_row
 
@@ -180,7 +180,7 @@ def show_plan(plan_id: int, plan: planner.Plan) -> None:
              f"{len([t for t in plan.topic_hours if t in weak_ids])} weak, extra time"),
     ])
 
-    c1, c2, _ = st.columns([1.5, 1, 2.5])
+    c1, c2, c3, _ = st.columns([1.5, 1, 1.4, 1.1])
     if c1.button("Regenerate with latest scores", type="primary", icon=":material/refresh:",
                  use_container_width=True):
         try:
@@ -194,6 +194,12 @@ def show_plan(plan_id: int, plan: planner.Plan) -> None:
     if c2.button("New plan", icon=":material/add:", use_container_width=True):
         st.session_state.plan_form = True
         st.rerun()
+    c3.download_button(
+        "Add to calendar", ics.plan_to_ics(plan), file_name="personaai_study_plan.ics",
+        mime="text/calendar", icon=":material/calendar_add_on:", use_container_width=True,
+        help="Download the plan as a calendar file. Open it in Google Calendar (Settings → Import) "
+             "or on your phone to get reminders for each study day and exam.",
+    )
 
     changes = st.session_state.pop("plan_changes", None)
     if changes is not None:
