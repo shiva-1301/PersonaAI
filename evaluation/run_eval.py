@@ -82,7 +82,9 @@ def setup(model: str, cache: Path) -> None:
     config.CHROMA_DIR = cache / "chroma"
     config.UPLOADS_DIR = cache / "uploads"
     config.LLM_FALLBACK = False
-    if model.startswith("gemini"):
+    if model.startswith("claude"):
+        config.LLM_PROVIDER, config.ANTHROPIC_MODEL = "claude", model
+    elif model.startswith("gemini"):
         config.LLM_PROVIDER, config.GEMINI_MODEL = "gemini", model
     else:
         config.LLM_PROVIDER, config.OLLAMA_MODEL = "ollama", model
