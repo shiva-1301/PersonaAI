@@ -32,10 +32,10 @@ def setup() -> None:
     documents = db.list_documents(user_id)
     topics = db.list_topics(user_id)
     if not documents:
-        callout("Upload your notes on the Notes Q&A page first.", "blue", "👉")
+        callout("Upload your notes on the Notes Q&A page first.", "blue", "arrow")
         return
     if not topics:
-        callout("Your documents have no topics yet. Add them on the Notes Q&A page.", "blue", "👉")
+        callout("Your documents have no topics yet. Add them on the Notes Q&A page.", "blue", "arrow")
         return
 
     left, right = st.columns([1.8, 1], gap="large")
@@ -125,7 +125,7 @@ def take(state: dict) -> None:
         )
 
     with st.container(key="question"), card("question_body"):
-        html(badge(q.topic, "violet", "📘 ") + f'<div class="pa-question">{escape(q.question)}</div>')
+        html(badge(q.topic, "violet", "book") + f'<div class="pa-question">{escape(q.question)}</div>')
         st.radio(
             f"Question {i + 1}",
             range(4),
@@ -177,17 +177,17 @@ def results(questions: list[quiz.Question], chosen: list[int], result: quiz.Resu
     wrong_topics = sorted({q.topic for q, ok in zip(questions, result.correct) if not ok})
     tone = "aqua" if result.percent >= 80 else "yellow" if result.percent >= 60 else "orange"
     stat_row([
-        Stat("Score", f"{result.score} / {result.total}", "🏆", tone),
-        Stat("Accuracy", f"{result.percent}%", "🎯", tone),
-        Stat("Correct", str(result.score), "✅", "aqua"),
-        Stat("To revise", str(len(wrong_topics)), "📌", "orange", "topics"),
+        Stat("Score", f"{result.score} / {result.total}", "award", tone),
+        Stat("Accuracy", f"{result.percent}%", "target", tone),
+        Stat("Correct", str(result.score), "check-circle", "aqua"),
+        Stat("To revise", str(len(wrong_topics)), "bookmark", "orange", "topics"),
     ])
     if wrong_topics:
         with card("revise"):
             section("Topics to revise", "These answers were saved; your weak-topic tracking is updated.")
             chips([(t, "critical") for t in wrong_topics])
     else:
-        callout("Perfect score! Every topic in this quiz was answered correctly.", "good", "🎉")
+        callout("Perfect score! Every topic in this quiz was answered correctly.", "good", "check-circle")
 
     b1, b2, _ = st.columns([1, 1, 2])
     if b1.button("New quiz", type="primary", icon=":material/refresh:", use_container_width=True):
@@ -199,19 +199,19 @@ def results(questions: list[quiz.Question], chosen: list[int], result: quiz.Resu
     html('<div class="pa-section" style="margin-top:1rem">Review</div>')
     for i, (q, c, ok) in enumerate(zip(questions, chosen, result.correct)):
         with card(f"review_{i}"):
-            verdict = badge("Correct", "good", "✓ ") if ok else badge("Incorrect", "critical", "✗ ")
+            verdict = badge("Correct", "good", "check") if ok else badge("Incorrect", "critical", "x")
             if ok:
                 answer = f'<div class="pa-answer pa-answer-good">✓ {escape(q.options[c])}</div>'
             else:
                 answer = (f'<div class="pa-answer pa-answer-bad">✗ Your answer: <s>{escape(q.options[c])}</s></div>'
                           f'<div class="pa-answer pa-answer-good">✓ Correct: {escape(q.correct_option)}</div>')
-            html(verdict + badge(q.topic, "violet", "📘 ")
+            html(verdict + badge(q.topic, "violet", "book")
                  + f'<div class="pa-question" style="font-size:1rem !important">{i + 1}. {escape(q.question)}</div>'
                  + answer)
             if q.explanation:
                 st.caption(q.explanation)
             if q.source:
-                html(badge(q.source, "blue", "📄 "))
+                html(badge(q.source, "blue", "file"))
 
 
 if state is None:

@@ -257,7 +257,8 @@ def test_study_plan_create_mark_done_and_regenerate(tmp_path, monkeypatch):
     assert plan.days[-1].tasks[0].kind == "exam" and "Next exam: General" in text(at)
     # Weak "Hive tables" (25%) gets the most time and is flagged as a priority chip
     assert max(plan.topic_hours, key=plan.topic_hours.get) == ids["Hive tables"]
-    assert "⚑" in text(at) and "Today" in text(at)
+    from ui.styles import ICONS
+    assert text(at).count(ICONS["flag"]) >= 2 and "Today" in text(at)  # legend + a weak task
 
     at.checkbox(key=f"done_{plan_id}_0").check().run()
     assert not at.exception

@@ -9,9 +9,9 @@ import streamlit as st
 
 from core import auth, db, notify
 from ui import shell
-from ui.styles import html, inject_css
+from ui.styles import html, icon, inject_css
 
-st.set_page_config(page_title="PersonaAI", page_icon="🎓", layout="wide")
+st.set_page_config(page_title="PersonaAI", page_icon=":material/school:", layout="wide")
 db.init_db()
 inject_css()  # every page renders inside this run, so this styles all of them
 
@@ -71,7 +71,7 @@ def login_page() -> None:
     with middle:
         html('<div style="height:7vh"></div>')
         with st.container(key="login_card"):
-            html('<div class="pa-login-logo"><div class="pa-logo-mark">🎓</div></div>'
+            html(f'<div class="pa-login-logo"><div class="pa-logo-mark">{icon("cap", 28)}</div></div>'
                  '<div class="pa-login-title">PersonaAI</div>'
                  "<div class=\"pa-login-tag\">The study assistant that learns what you don't know yet.</div>")
             if "first_login" in st.session_state:
@@ -100,7 +100,7 @@ def login_page() -> None:
 
 
 if "user_id" not in st.session_state:
-    page = st.navigation([st.Page(login_page, title="Sign in", icon="🎓")], position="hidden")
+    page = st.navigation([st.Page(login_page, title="Sign in", icon=":material/school:")], position="hidden")
 else:
     app_pages = shell.pages(st.session_state.get("role", "student"))
     page = st.navigation(app_pages, position="hidden")

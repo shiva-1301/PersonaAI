@@ -7,7 +7,7 @@ import streamlit as st
 from core import db, ingest, llm, memory, rag
 from core.documents import SUPPORTED_TYPES, DocumentError
 from ui.shell import load_models, require_login
-from ui.styles import badge, callout, card, html, page_header, section
+from ui.styles import badge, callout, card, html, icon, page_header, section
 
 user_id = require_login()
 
@@ -51,20 +51,20 @@ def show_weak_topic(topic: dict | None) -> None:
         callout(
             f"This is about {topic['name']}, one of your weak topics ({topic['accuracy']:.0%} in "
             "recent quizzes). An adaptive quiz on the Quiz page will focus on it.",
-            tone="warning", icon="📌", bold="Weak topic.",
+            tone="warning", icon="bookmark", bold="Weak topic.",
         )
 
 
 def show_answer(answer: rag.Answer) -> None:
     if not answer.found:
-        callout(answer.text, tone="gray", icon="🔎")
+        callout(answer.text, tone="gray", icon="search")
         if answer.model:
             html(badge(f"Checked by {answer.model}", "gray"))
         return
     st.markdown(answer.text)
-    badges = "".join(badge(f"S{s.number} · {s.label}", "blue", "📄 ") for s in answer.sources)
+    badges = "".join(badge(f"S{s.number} · {s.label}", "blue", "file") for s in answer.sources)
     if answer.model:
-        badges += badge(answer.model, "gray", "✨ ")
+        badges += badge(answer.model, "gray", "cpu")
     if badges:
         html(f'<div style="margin-top:.2rem">{badges}</div>')
     if answer.sources:
@@ -83,9 +83,9 @@ def suggested_topics(n: int) -> list[str]:
 
 def ask(question: str, scope: list[int]) -> None:
     """Answer one question inside the current chat container and add it to the history."""
-    with st.chat_message("user", avatar="🧑‍🎓"):
+    with st.chat_message("user", avatar=":material/person:"):
         st.markdown(question)
-    with st.chat_message("assistant", avatar="🎓"):
+    with st.chat_message("assistant", avatar=":material/school:"):
         with st.spinner("Searching your notes..."):
             try:
                 answer = rag.answer(user_id, question, document_ids=scope or None)
@@ -122,7 +122,7 @@ with docs_col:
         badges = (badge(doc["subject_name"], "violet") if doc["subject_name"] else "") + (
             badge(doc["unit"], "blue") if doc["unit"] else "")
         html(
-            '<div class="pa-doc"><div class="pa-doc-icon">📄</div><div style="min-width:0">'
+            f'<div class="pa-doc"><div class="pa-doc-icon">{icon("file", 18)}</div><div style="min-width:0">'
             f'<div class="pa-doc-name" title="{escape(doc["filename"])}">{escape(doc["filename"])}</div>'
             f'<div class="pa-doc-meta">{meta}</div>{badges}</div></div>'
         )
@@ -197,7 +197,7 @@ with chat_col:
     with card("chat"):
         section("Ask your notes")
         if not documents:
-            callout("Upload your notes on the right first, then ask questions here.", "blue", "👉")
+            callout("Upload your notes on the right first, then ask questions here.", "blue", "arrow")
         else:
             names = {d["id"]: d["filename"] for d in documents}
             scope = st.multiselect(
@@ -217,9 +217,9 @@ with chat_col:
                     if suggestion:
                         question = suggestion
                 for turn in st.session_state.qa_history:
-                    with st.chat_message("user", avatar="🧑‍🎓"):
+                    with st.chat_message("user", avatar=":material/person:"):
                         st.markdown(turn["question"])
-                    with st.chat_message("assistant", avatar="🎓"):
+                    with st.chat_message("assistant", avatar=":material/school:"):
                         show_answer(turn["answer"])
                         show_weak_topic(turn.get("weak_topic"))
                 if question:

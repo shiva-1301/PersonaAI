@@ -7,7 +7,7 @@ import streamlit as st
 
 from core import config, db, llm, memory, notify, planner
 from ui.shell import require_login
-from ui.styles import Stat, badge, card, chips, hero_text, html, row, section, stat_row
+from ui.styles import Stat, badge, card, chips, hero_text, html, icon, row, section, stat_row
 
 user_id = require_login()
 name = (st.session_state.get("full_name") or st.session_state.username).split()[0]
@@ -41,7 +41,7 @@ else:
     )
 
 with st.container(key="hero"):
-    hero_text(f"{date.today():%A, %d %B}", f"Welcome back, {name} 👋", message)
+    hero_text(f"{date.today():%A, %d %B}", f"Welcome back, {name}", message)
     left, right, _ = st.columns([1.1, 1.1, 2.5])
     if left.button(cta, icon=":material/arrow_forward:", use_container_width=True):
         st.switch_page(target)
@@ -52,13 +52,13 @@ html('<div style="height:1.1rem"></div>')
 
 # ---- Headline numbers ----
 stat_row([
-    Stat("Documents uploaded", str(len(documents)), "📄", "blue",
+    Stat("Documents uploaded", str(len(documents)), "file", "blue",
          f"{len(stats)} topics" if stats else "No topics yet"),
-    Stat("Quizzes taken", str(len(attempts)), "📝", "violet",
+    Stat("Quizzes taken", str(len(attempts)), "quiz", "violet",
          f"{answered} questions answered" if answered else "None yet"),
-    Stat("Average score", f"{correct / answered:.0%}" if answered else "–", "🎯", "aqua",
+    Stat("Average score", f"{correct / answered:.0%}" if answered else "–", "target", "aqua",
          "across all quizzes"),
-    Stat("Weak topics", str(len(weak)), "⚠️", "orange",
+    Stat("Weak topics", str(len(weak)), "alert", "orange",
          f"{len(strong)} strong" if strong else f"need {memory.MIN_ANSWERS}+ answers each"),
 ])
 
@@ -71,14 +71,14 @@ with left:
         current = planner.latest(user_id)
         today = current[1].day(date.today()) if current else None
         if today and today.tasks:
-            icons = {"study": "📖", "review": "🔁", "mock": "📝", "revision": "🎯", "exam": "🎓"}
+            icons = {"study": "book", "review": "repeat", "mock": "quiz", "revision": "target", "exam": "cap"}
             html("".join(
-                row(f"{icons[t.kind]} {escape(f'{t.subject} · ' if t.subject and t.kind != 'exam' else '')}"
+                row(f"{icon(icons[t.kind])} {escape(f'{t.subject} · ' if t.subject and t.kind != 'exam' else '')}"
                     f"{escape(t.title)}",
                     badge("Exam", "violet") if t.kind == "exam" else badge(f"{t.hours:g} h", "blue"))
                 for t in today.tasks))
             if today.done:
-                html(badge("Done for today", "good", "✓ "))
+                html(badge("Done for today", "good", "check"))
         elif current:
             st.caption("Nothing planned for today.")
         else:
@@ -109,7 +109,7 @@ if attempts:
             # SQLite stores UTC; show the student's local time.
             when = (datetime.fromisoformat(a["created_at"]).replace(tzinfo=timezone.utc)
                     .astimezone().strftime("%d %b, %H:%M"))
-            rows.append(row(f"📝 Quiz · {when}",
+            rows.append(row(f"{icon('quiz')} Quiz · {when}",
                             badge(f"{a['score']}/{a['total']}", "gray") + badge(f"{pct:.0%}", tone)))
         html("".join(rows))
 

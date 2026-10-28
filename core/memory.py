@@ -21,10 +21,10 @@ ADAPTIVE_WEAK_SHARE = 0.60  # share of an adaptive quiz spent on weak topics
 TOPIC_MATCH_FLOOR = 0.22
 
 STATUS_LABELS = {
-    "weak": "🔴 Weak",
-    "learning": "🟡 Learning",
-    "strong": "🟢 Strong",
-    "new": "⚪ Not tested",
+    "weak": "Weak",
+    "learning": "Learning",
+    "strong": "Strong",
+    "new": "Not tested",
 }
 
 

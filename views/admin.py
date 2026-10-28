@@ -9,7 +9,7 @@ import streamlit as st
 from core import auth, db, ingest
 from core.documents import SUPPORTED_TYPES, DocumentError
 from ui.shell import cohort_label, load_models, require_admin
-from ui.styles import badge, callout, card, html, page_header, row, section
+from ui.styles import badge, callout, card, html, icon, page_header, row, section
 
 admin_id = require_admin()
 
@@ -82,7 +82,7 @@ with students_tab:
         section("Cohorts", "A department and year. Students see their cohort's course notes.")
         if not cohorts:
             html('<div class="pa-empty">No cohorts yet. Import a class list to create them.</div>')
-        html("".join(row(f"👥 {escape(labels[c['id']])}", badge(f"{c['students']} student{'s' if c['students'] != 1 else ''}", "blue"))
+        html("".join(row(f"{icon('users')} {escape(labels[c['id']])}", badge(f"{c['students']} student{'s' if c['students'] != 1 else ''}", "blue"))
                      for c in cohorts))
 
     if cohorts:
@@ -103,7 +103,7 @@ with students_tab:
             issued = st.session_state.get("issued_codes")
             if issued:
                 callout("Hand each student their code now: codes can't be shown again. "
-                        "Each one works once, to set that student's first password.", "warning", "🔑",
+                        "Each one works once, to set that student's first password.", "warning", "key",
                         bold="Sign-up codes.")
                 table = pd.DataFrame(issued, columns=["Hall ticket", "Name", "Sign-up code"])
                 st.dataframe(table, hide_index=True, use_container_width=True)
@@ -131,7 +131,7 @@ with students_tab:
 # ---------------------------------------------------------------- course notes
 with notes_tab:
     if not cohorts:
-        callout("Import a class list first: it creates the cohorts that notes are shared with.", "blue", "👉")
+        callout("Import a class list first: it creates the cohorts that notes are shared with.", "blue", "arrow")
         st.stop()
     cohort_id = st.selectbox("Cohort", list(labels), format_func=labels.get, key="notes_cohort")
     subjects = {s["id"]: s["name"] for s in db.list_subjects(cohort_id)}
@@ -155,7 +155,7 @@ with notes_tab:
         section("Share notes", "PDF, Word or PowerPoint. Pages that are only images are read too. "
                 "Uploading a file with the same name again updates it.")
         if not subjects:
-            callout("Add a subject first.", "blue", "👈")
+            callout("Add a subject first.", "blue", "info")
         else:
             with st.form("share", clear_on_submit=True, border=False):
                 c1, c2 = st.columns(2)
@@ -200,7 +200,7 @@ with notes_tab:
         for doc in documents:
             topics = db.list_topics(admin_id, doc["id"])
             html(
-                '<div class="pa-doc"><div class="pa-doc-icon">📄</div><div style="min-width:0">'
+                f'<div class="pa-doc"><div class="pa-doc-icon">{icon("file", 18)}</div><div style="min-width:0">'
                 f'<div class="pa-doc-name" title="{escape(doc["filename"])}">{escape(doc["filename"])}</div>'
                 f'<div class="pa-doc-meta">{len(topics)} topics'
                 + (f" · {doc['page_count']} pages" if doc["page_count"] else "") + "</div>"

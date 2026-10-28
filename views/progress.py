@@ -20,7 +20,7 @@ attempts = db.list_quiz_attempts(user_id)
 stats = memory.topic_stats(user_id)
 
 if not attempts:
-    callout("No quizzes yet. Take a few on the Quiz page and your progress will show here.", "blue", "📈")
+    callout("No quizzes yet. Take a few on the Quiz page and your progress will show here.", "blue", "trend")
     if st.button("Take a quiz", type="primary", icon=":material/quiz:"):
         st.switch_page("views/quiz.py")
     st.stop()
@@ -33,11 +33,11 @@ correct = sum(a["score"] for a in attempts)
 
 # ---- Headline numbers ----
 stat_row([
-    Stat("Quizzes taken", str(len(attempts)), "📝", "violet", f"{answered} questions"),
-    Stat("Overall accuracy", f"{correct / answered:.0%}" if answered else "–", "🎯", "aqua",
+    Stat("Quizzes taken", str(len(attempts)), "quiz", "violet", f"{answered} questions"),
+    Stat("Overall accuracy", f"{correct / answered:.0%}" if answered else "–", "target", "aqua",
          f"{correct} of {answered} correct"),
-    Stat("Weak topics", str(len(weak)), "⚠️", "orange", f"{len(strong)} strong"),
-    Stat("Topics tested", f"{len(tested)} / {len(stats)}", "📚", "blue", "at least one answer"),
+    Stat("Weak topics", str(len(weak)), "alert", "orange", f"{len(strong)} strong"),
+    Stat("Topics tested", f"{len(tested)} / {len(stats)}", "layers", "blue", "at least one answer"),
 ])
 
 # ---- Score trend + topic status ----

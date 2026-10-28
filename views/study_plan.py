@@ -20,11 +20,11 @@ page_header(
 today = date.today()
 # kind -> (icon, label, tone)
 KINDS = {
-    "study": ("📖", "Study", "blue"),
-    "review": ("🔁", "Review + 5-question quiz", "aqua"),
-    "mock": ("📝", "Mock exam", "violet"),
-    "revision": ("🎯", "Final revision", "orange"),
-    "exam": ("🎓", "Exam", "violet"),
+    "study": ("book", "Study", "blue"),
+    "review": ("repeat", "Review + 5-question quiz", "aqua"),
+    "mock": ("quiz", "Mock exam", "violet"),
+    "revision": ("target", "Final revision", "orange"),
+    "exam": ("cap", "Exam", "violet"),
 }
 
 
@@ -53,11 +53,11 @@ def _exams_from(table: pd.DataFrame) -> list[planner.Exam]:
 def new_plan_form(existing: planner.Plan | None) -> None:
     documents = db.list_documents(user_id)
     if not documents:
-        callout("Upload your notes on the Notes Q&A page first.", "blue", "👉")
+        callout("Upload your notes on the Notes Q&A page first.", "blue", "arrow")
         return
     subjects = planner.subject_names(user_id)
     if not subjects:
-        callout("Your notes have no topics yet. Check them on the Notes Q&A page.", "blue", "👉")
+        callout("Your notes have no topics yet. Check them on the Notes Q&A page.", "blue", "arrow")
         return
     left, right = st.columns([1.5, 1], gap="large")
     with left, card("plan_form"):
@@ -116,16 +116,16 @@ def _toggle_done(plan_id: int, plan: planner.Plan, index: int, key: str) -> None
 
 
 def _task_chip(task: planner.Task, weak_ids: set[int]) -> str:
-    icon, _, tone = KINDS[task.kind]
+    name, _, tone = KINDS[task.kind]
     if task.kind == "exam":
-        return chip(f"{icon} {task.title}", tone)
+        return chip(task.title, tone, name)
     # Display-only shortening: the icon + legend already say it's a review with a quiz.
     title = task.title.replace("Review + 5-question quiz:", "Review:")
     if task.subject and task.subject != planner.GENERAL_SUBJECT:
         title = f"{task.subject} · {title}"
     if task.topic_id in weak_ids:
-        return chip(f"⚑ {icon} {title} · {task.hours:g} h", "critical")
-    return chip(f"{icon} {title} · {task.hours:g} h", tone)
+        return chip(f"{title} · {task.hours:g} h", "critical", "flag")
+    return chip(f"{title} · {task.hours:g} h", tone, name)
 
 
 def _day_card(plan_id: int, plan: planner.Plan, index: int, weak_ids: set[int]) -> None:
@@ -155,7 +155,7 @@ def show_plan(plan_id: int, plan: planner.Plan) -> None:
     # A timetable plan's last day is its last exam, so it stays useful on that day.
     days_left = (exam - today).days
     if days_left < (0 if plan.exams else 1):
-        callout(f"Your exam on {exam:%a %d %b} has passed. Create a plan for your next one.", "blue", "🎓")
+        callout(f"Your exam on {exam:%a %d %b} has passed. Create a plan for your next one.", "blue", "cap")
         new_plan_form(None)
         return
 
@@ -167,16 +167,16 @@ def show_plan(plan_id: int, plan: planner.Plan) -> None:
         nxt = exams_ahead[0]
         nxt_day = date.fromisoformat(nxt["date"])
         nxt_left = (nxt_day - today).days
-        exam_stat = Stat(f"Next exam: {nxt['subject']}", f"{nxt_day:%d %b}", "🎓", "violet",
+        exam_stat = Stat(f"Next exam: {nxt['subject']}", f"{nxt_day:%d %b}", "calendar", "violet",
                          "today" if nxt_left == 0 else f"{nxt_left} day{'s' if nxt_left != 1 else ''} left"
                          + (f" · {len(exams_ahead)} exams to go" if len(exams_ahead) > 1 else ""))
     else:
-        exam_stat = Stat("Exam", f"{exam:%d %b}", "🎓", "violet", f"{days_left} day{'s' if days_left != 1 else ''} left")
+        exam_stat = Stat("Exam", f"{exam:%d %b}", "calendar", "violet", f"{days_left} day{'s' if days_left != 1 else ''} left")
     stat_row([
         exam_stat,
-        Stat("Hours per day", f"{plan.hours_per_day:g} h", "⏱️", "blue", f"{sum(plan.topic_hours.values()):g} h of topic study"),
-        Stat("Days done", f"{done} / {len(plan.days)}", "✅", "aqua"),
-        Stat("Topics covered", str(len(plan.topic_hours)), "📚", "orange",
+        Stat("Hours per day", f"{plan.hours_per_day:g} h", "clock", "blue", f"{sum(plan.topic_hours.values()):g} h of topic study"),
+        Stat("Days done", f"{done} / {len(plan.days)}", "check-circle", "aqua"),
+        Stat("Topics covered", str(len(plan.topic_hours)), "layers", "orange",
              f"{len([t for t in plan.topic_hours if t in weak_ids])} weak, extra time"),
     ])
 
@@ -209,17 +209,17 @@ def show_plan(plan_id: int, plan: planner.Plan) -> None:
             st.success("Plan regenerated; time per topic is unchanged.")
     elif plan.generated_on < today.isoformat():
         callout(f"This plan was made on {date.fromisoformat(plan.generated_on):%d %b}. Regenerate it "
-                "after a few quizzes so it reflects your latest weak topics.", "gray", "🕑")
+                "after a few quizzes so it reflects your latest weak topics.", "gray", "clock")
     if plan.grouped_topics:
         callout(f"There isn't time for a session per topic, so {plan.grouped_topics} topics share sessions "
                 "with the topics next to them. Plan more hours per day to give each its own time.",
-                "orange", "⏳")
+                "orange", "clock")
 
     # Legend for the chips below (colour is never the only cue: every chip has an icon + label).
     # Timetable plans have exam days but no mock exam; single-exam plans the reverse.
     unused = "mock" if plan.exams else "exam"
-    chips([(f"{icon} {label}", tone) for kind, (icon, label, tone) in KINDS.items() if kind != unused]
-          + [("⚑ Weak topic: priority", "critical")])
+    chips([(label, tone, name) for kind, (name, label, tone) in KINDS.items() if kind != unused]
+          + [("Weak topic: priority", "critical", "flag")])
 
     indices = range(len(plan.days))
     earlier = [i for i in indices if plan.days[i].date < today.isoformat()]
