@@ -5,7 +5,7 @@ from html import escape
 
 import streamlit as st
 
-from core import config, db, llm, memory, planner
+from core import config, db, llm, memory, notify, planner
 from ui.shell import require_login
 from ui.styles import Stat, badge, card, chips, hero_text, html, row, section, stat_row
 
@@ -112,6 +112,34 @@ if attempts:
             rows.append(row(f"📝 Quiz · {when}",
                             badge(f"{a['score']}/{a['total']}", "gray") + badge(f"{pct:.0%}", tone)))
         html("".join(rows))
+
+# ---- Email updates ----
+if notify.enabled():
+    me = db.get_user(user_id)
+    with st.expander("Email updates", icon=":material/mail:", expanded=False):
+        with st.form("email_updates", border=False):
+            address = st.text_input("Your email", value=me["email"] or "", placeholder="you@example.com")
+            scores = st.checkbox("Email me my result after each quiz", value=bool(me["email_scores"]))
+            reminders = st.checkbox("Email me each morning's study plan", value=bool(me["email_reminders"]))
+            saved = st.form_submit_button("Save and send a test email", type="primary")
+        if saved:
+            address = address.strip()
+            if address and not notify.valid_address(address):
+                st.error("That doesn't look like an email address.")
+            else:
+                db.set_email_settings(user_id, address, scores and bool(address), reminders and bool(address))
+                if not address:
+                    st.success("Email updates are off.")
+                else:
+                    wanted = [w for w, on in (("your quiz results", scores),
+                                              ("your study plan each morning", reminders)) if on]
+                    body = (f"Hi {name},\n\nThis address will now get {' and '.join(wanted)}." if wanted
+                            else f"Hi {name},\n\nThis address is saved; no updates are turned on yet.")
+                    try:
+                        notify.send(address, "PersonaAI email updates are on", body)
+                        st.success(f"Saved. A test email is on its way to {address}.")
+                    except notify.EmailError as exc:
+                        st.warning(f"Saved, but the test email failed: {exc}")
 
 # ---- System check (the original LLM connection test) ----
 with st.expander("System check: AI connection", icon=":material/settings:"):

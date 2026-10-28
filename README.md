@@ -140,6 +140,13 @@ streamlit run app.py
 | `LLM_PROVIDER` | Which provider to try first: `claude` (default), `gemini` or `ollama` |
 | `ADMIN_PASSWORD` | Password of the `admin` account; leave empty to turn admin sign-in off |
 | `OCR_ENABLED` | Read pages that are only images (scanned PDFs, picture slides) with Claude on upload (default `true`) |
+| `SMTP_USER`, `SMTP_PASSWORD` | Email updates: the Gmail address to send from and its [app password](https://myaccount.google.com/apppasswords) (needs 2-Step Verification). Leave empty to turn email off |
+| `SMTP_HOST`, `SMTP_PORT`, `APP_URL` | Optional: another mail server (default `smtp.gmail.com`, 465) and the app link used in emails |
+
+**Email updates:** students add their address under *Email updates* on the Home page and choose
+quiz results and/or a morning study-plan email. Morning emails are sent by
+`python scripts/send_reminders.py`; schedule it daily (the command for Windows Task Scheduler
+is in the script). The Study Plan page also has **Add to calendar** (an .ics file).
 
 Notes can be PDF, Word (.docx), PowerPoint (.pptx; old .ppt needs LibreOffice) or text.
 Slides are cited as "file.pptx, slide N".

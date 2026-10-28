@@ -54,6 +54,13 @@ OCR_ENABLED = _get("OCR_ENABLED", "true").lower() not in ("false", "0", "no")
 # Password of the "admin" account (class lists, cohorts, course notes). Empty = admin off.
 ADMIN_PASSWORD = _get("ADMIN_PASSWORD")
 OLLAMA_HOST = _get("OLLAMA_HOST", "http://localhost:11434")
+# Email updates (quiz scores, daily study reminders). Empty SMTP_USER = email off.
+# For Gmail, SMTP_PASSWORD is an app password, not the account password.
+SMTP_HOST = _get("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(_get("SMTP_PORT", "465"))
+SMTP_USER = _get("SMTP_USER")
+SMTP_PASSWORD = _get("SMTP_PASSWORD")
+APP_URL = _get("APP_URL", "http://localhost:8501")  # linked from the emails
 
 LOG_PATH = DATA_DIR / "personaai.log"
 

@@ -4,7 +4,7 @@ from html import escape
 
 import streamlit as st
 
-from core import db, memory, quiz
+from core import db, memory, notify, quiz
 from ui.shell import load_models, require_login
 from ui.styles import Stat, badge, callout, card, chips, html, page_header, row, section, stat_row
 
@@ -161,8 +161,13 @@ def take(state: dict) -> None:
                 f"Answer every question first. Missing: {', '.join(str(j + 1) for j in missing)}"]
             state["current"] = missing[0]
             st.rerun()
-        state["result"] = quiz.submit(user_id, questions, list(answers))
+        state["result"] = result = quiz.submit(user_id, questions, list(answers))
         state["chosen"] = list(answers)
+        me = db.get_user(user_id)
+        if me["email"] and me["email_scores"] and notify.enabled():
+            name = (me["full_name"] or me["username"]).split()[0]
+            to_revise = sorted({q.topic for q, ok in zip(questions, result.correct) if not ok})
+            notify.send_in_background(me["email"], *notify.quiz_email(name, result.score, result.total, to_revise))
         st.rerun()
 
 

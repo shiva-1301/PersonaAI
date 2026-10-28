@@ -30,7 +30,10 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT,
     cohort_id     INTEGER REFERENCES cohorts(id) ON DELETE SET NULL,
     -- Hash of the one-time code the admin gives a student to set their first password.
-    setup_code_hash TEXT
+    setup_code_hash TEXT,
+    email           TEXT,  -- for email updates; set by the student
+    email_scores    INTEGER NOT NULL DEFAULT 0,  -- email each quiz result
+    email_reminders INTEGER NOT NULL DEFAULT 0   -- email each morning's study plan
 );
 
 -- Failed sign-ins per username (lower case), for the lockout.
@@ -115,6 +118,9 @@ _NEW_COLUMNS = [
     ("users", "password_hash", "TEXT"),
     ("users", "cohort_id", "INTEGER REFERENCES cohorts(id) ON DELETE SET NULL"),
     ("users", "setup_code_hash", "TEXT"),
+    ("users", "email", "TEXT"),
+    ("users", "email_scores", "INTEGER NOT NULL DEFAULT 0"),
+    ("users", "email_reminders", "INTEGER NOT NULL DEFAULT 0"),
     ("documents", "cohort_id", "INTEGER REFERENCES cohorts(id) ON DELETE CASCADE"),
     ("documents", "subject_id", "INTEGER REFERENCES subjects(id) ON DELETE SET NULL"),
     ("documents", "unit", "TEXT"),
@@ -174,6 +180,19 @@ def find_user(username: str, db_path=None) -> sqlite3.Row | None:
 def get_user(user_id: int, db_path=None) -> sqlite3.Row | None:
     with connect(db_path) as conn:
         return conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+
+
+def set_email_settings(user_id: int, email: str | None, scores: bool, reminders: bool, db_path=None) -> None:
+    with connect(db_path) as conn:
+        conn.execute("UPDATE users SET email = ?, email_scores = ?, email_reminders = ? WHERE id = ?",
+                     (email or None, int(scores), int(reminders), user_id))
+
+
+def users_wanting_reminders(db_path=None) -> list[sqlite3.Row]:
+    with connect(db_path) as conn:
+        return conn.execute(
+            "SELECT * FROM users WHERE email_reminders = 1 AND email IS NOT NULL ORDER BY id"
+        ).fetchall()
 
 
 def set_password_hash(user_id: int, password_hash: str | None, db_path=None) -> None:
