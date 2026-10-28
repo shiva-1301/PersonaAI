@@ -20,3 +20,6 @@ import pytest  # noqa: E402
 def _no_real_ocr(monkeypatch):
     """Tests never send pages to the real OCR (Claude); tests that need it fake it."""
     monkeypatch.setattr(config, "OCR_ENABLED", False)
+    # ... and never send real email; tests that need it set these and fake the server.
+    monkeypatch.setattr(config, "SMTP_USER", "")
+    monkeypatch.setattr(config, "SMTP_PASSWORD", "")

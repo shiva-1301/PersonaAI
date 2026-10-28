@@ -40,8 +40,12 @@ def test_first_sign_in_then_password_login(tmp_path, monkeypatch):
     sign_in(at, "22b81a0501", "")  # registered, no password yet
     assert "First sign-in for <b>22B81A0501</b>" in text(at)
     at.text_input[0].input("WRONG-CODE")
-    at.text_input[1].input("secret123")
+    at.text_input[1].input("not an email")
     at.text_input[2].input("secret123")
+    at.text_input[3].input("secret123")
+    at.button[0].click().run()
+    assert at.error[0].value == "Please enter a valid email address."
+    at.text_input[1].input("ananya@example.com")
     at.button[0].click().run()
     assert "Ask your department admin" in at.error[0].value  # no code issued yet
     code = auth.issue_setup_code(db.find_user("22B81A0501")["id"])
@@ -49,6 +53,8 @@ def test_first_sign_in_then_password_login(tmp_path, monkeypatch):
     at.button[0].click().run()
     assert not at.exception
     assert at.session_state.username == "22B81A0501" and at.session_state.role == "student"
+    me = db.find_user("22B81A0501")  # the sign-up email gets results and reminders
+    assert (me["email"], me["email_scores"], me["email_reminders"]) == ("ananya@example.com", 1, 1)
     assert "Welcome back, Ananya" in text(at)  # home page hero
     assert "CSE · Year 3" in " ".join(m.value for m in at.sidebar.markdown)
     assert [b.label for b in at.sidebar.button] == ["Log out"]

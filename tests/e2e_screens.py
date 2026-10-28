@@ -116,6 +116,7 @@ def first_sign_in(page: Page, ticket: str, code: str) -> None:
     sign_in(page, ticket, "")
     expect(page.get_by_text("First sign-in for").first).to_be_visible(timeout=30_000)
     page.get_by_label("Sign-up code").fill(code)
+    page.get_by_role("textbox", name="Email", exact=True).fill(f"{ticket.lower()}@example.com")  # reserved domain: no real inbox
     page.locator("input[aria-label=\"New password\"]").fill(STUDENT_PASSWORD)
     page.get_by_label("Confirm password").fill(STUDENT_PASSWORD)
     page.get_by_role("button", name="Set password and continue").click()

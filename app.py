@@ -7,7 +7,7 @@ from html import escape
 
 import streamlit as st
 
-from core import auth, db
+from core import auth, db, notify
 from ui import shell
 from ui.styles import html, inject_css
 
@@ -27,23 +27,39 @@ def _start_session(account: auth.Account) -> None:
 
 
 def _first_password_form(ticket: str) -> None:
-    """A registered student's first sign-in: they choose their password."""
+    """A registered student's first sign-in: they choose their password and give the email
+    their quiz results and study reminders go to (changeable later on the Home page)."""
     html(f'<div class="pa-login-tag">First sign-in for <b>{escape(ticket)}</b>. Enter the sign-up '
-         "code from your department, then choose a password you'll use from now on.</div>")
+         "code from your department, your email, and a password you'll use from now on.</div>")
+    student = db.find_user(ticket)
     with st.form("set_password", border=False):
         code = st.text_input("Sign-up code", max_chars=12, placeholder="e.g. K7QF-3MXP")
+        email = st.text_input("Email", value=(student["email"] if student else None) or "",
+                              max_chars=120, placeholder="you@example.com",
+                              help="Your quiz results and daily study reminders are sent here.")
         password = st.text_input("New password", type="password",
                                  help=f"At least {auth.MIN_PASSWORD_LENGTH} characters.")
         confirm = st.text_input("Confirm password", type="password")
         submitted = st.form_submit_button("Set password and continue", type="primary",
                                           use_container_width=True)
     if submitted:
-        try:
-            account = auth.set_first_password(ticket, code, password, confirm)
-        except auth.AuthError as exc:
-            st.error(str(exc))  # the way back below stays available
+        email = email.strip()
+        if not notify.valid_address(email):  # checked first, so a typo doesn't use up the code
+            st.error("Please enter a valid email address.")
         else:
-            _start_session(account)
+            try:
+                account = auth.set_first_password(ticket, code, password, confirm)
+            except auth.AuthError as exc:
+                st.error(str(exc))  # the way back below stays available
+            else:
+                db.set_email_settings(account.user_id, email, scores=True, reminders=True)
+                if notify.enabled():
+                    name = (account.full_name or account.username).split()[0]
+                    notify.send_in_background(
+                        email, "Welcome to PersonaAI",
+                        f"Hi {name},\n\nYour PersonaAI account is ready. Your quiz results and your "
+                        "study plan each morning will be emailed to this address.")
+                _start_session(account)
     if st.button("Use a different hall ticket number", type="tertiary", use_container_width=True):
         st.session_state.pop("first_login", None)
         st.rerun()

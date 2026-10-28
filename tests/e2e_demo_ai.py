@@ -72,6 +72,7 @@ def sign_in_first_time(page: Page, ticket: str, code: str, password: str) -> Non
     page.get_by_role("button", name="Sign in").click()
     expect(page.get_by_text("First sign-in for").first).to_be_visible(timeout=30_000)
     page.get_by_label("Sign-up code").fill(code)
+    page.get_by_role("textbox", name="Email", exact=True).fill(f"{ticket.lower()}@example.com")  # reserved domain: no real inbox
     page.locator('input[aria-label="New password"]').fill(password)
     page.get_by_label("Confirm password").fill(password)
     page.get_by_role("button", name="Set password and continue").click()
@@ -199,6 +200,7 @@ def reset_used_students(students: list[dict]) -> None:
         user = db.find_user(student["hall_ticket"])
         if user["password_hash"]:
             student["signup_code"] = auth.reset_password(user["id"])
+            db.set_email_settings(user["id"], None, scores=False, reminders=False)
     with CODES_CSV.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=["hall_ticket", "name", "signup_code"])
         writer.writeheader()

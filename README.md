@@ -143,7 +143,8 @@ streamlit run app.py
 | `SMTP_USER`, `SMTP_PASSWORD` | Email updates: the Gmail address to send from and its [app password](https://myaccount.google.com/apppasswords) (needs 2-Step Verification). Leave empty to turn email off |
 | `SMTP_HOST`, `SMTP_PORT`, `APP_URL` | Optional: another mail server (default `smtp.gmail.com`, 465) and the app link used in emails |
 
-**Email updates:** students add their address under *Email updates* on the Home page and choose
+**Email updates:** students give their email when they first sign in (results and morning reminders
+are then on); they can change it or turn either off under *Email updates* on the Home page, choosing
 quiz results and/or a morning study-plan email. Morning emails are sent by
 `python scripts/send_reminders.py`; schedule it daily (the command for Windows Task Scheduler
 is in the script). The Study Plan page also has **Add to calendar** (an .ics file).
